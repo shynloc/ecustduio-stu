@@ -976,6 +976,7 @@ export function Notes({ data, act, go, search, busy }: any) {
     [error, setError] = useState(""),
     [material, setMaterial] = useState(false);
   const nid = location.hash.split("?")[0].split("/")[1] || "";
+  const wechatPreview = new URLSearchParams(location.hash.split("?")[1] || "").get("wechatPreview");
   const saving=useRef(false),composing=useRef(false);const [compositionTick,setCompositionTick]=useState(0);
   const load = () => api("/notes").then(setNotes);
   useEffect(() => {
@@ -1025,7 +1026,7 @@ export function Notes({ data, act, go, search, busy }: any) {
     if (n) {
       setCurrent(n);
       await load();
-      go("notes/" + n.id);
+      go("notes/" + n.id + (wechatPreview ? "?wechatPreview=" + encodeURIComponent(wechatPreview) : ""));
     }
     return n;
     }finally{saving.current=false;}
@@ -1120,7 +1121,7 @@ export function Notes({ data, act, go, search, busy }: any) {
               保存笔记
             </B>
             {current && <B secondary disabled={dirty} onClick={() => openSpeech(go,"note",current.id,title,body)}>生成配音</B>}
-            {current&&<B secondary disabled={dirty} onClick={()=>go('wechat/'+current.id)}>公众号排版</B>}
+            {current&&<B secondary disabled={dirty} onClick={()=>go('wechat/'+current.id+(wechatPreview?'?preview='+encodeURIComponent(wechatPreview):''))}>{wechatPreview?'返回公众号排版':'公众号排版'}</B>}
             {current && (
               <>
                 <B

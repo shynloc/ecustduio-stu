@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, post, upload } from "./api";
-import { copyText } from "./compat";
+import { copyRichHtml } from "./compat";
 
 export function WechatConnection({ onChange }: any) {
   const [info, setInfo] = useState<any>(null),
@@ -189,12 +189,29 @@ export function WechatEditor({ go, id, data }: any) {
     [message, setMessage] = useState(""),
     [connectOpen, setConnectOpen] = useState(false);
   const generation = useRef(0),
+    restored = useRef(""),
     note = notes.find((n) => n.id === selected);
+  const params = new URLSearchParams(location.hash.split("?")[1] || ""),
+    previewId = params.get("preview") || "",
+    draftId = params.get("draft") || "",
+    routeKey = [id || "", previewId, draftId].join(":");
+  function remember(p: any, d: any = null) {
+    const noteId = p?.noteId || selected || id || "",
+      query = new URLSearchParams();
+    if (p) query.set("preview", p.id);
+    if (d) query.set("draft", d.id);
+    restored.current = [noteId, p?.id || "", d?.id || ""].join(":");
+    historyReplace("wechat" + (noteId ? "/" + noteId : "") + (query.size ? "?" + query : ""));
+  }
+  function historyReplace(route: string) {
+    window.history.replaceState(window.history.state, "", "#" + route);
+  }
   function invalidate() {
     generation.current++;
     setPreview(null);
     setDraft(null);
     setMessage("");
+    remember(null);
   }
   useEffect(() => {
     let active = true;
@@ -217,12 +234,48 @@ export function WechatEditor({ go, id, data }: any) {
     };
   }, []);
   useEffect(() => {
+    if (restored.current === routeKey) return;
+    restored.current = routeKey;
+    const seq = ++generation.current;
     setSelected(id || "");
-    invalidate();
+    setPreview(null);
+    setDraft(null);
+    setMessage("");
     setTitle("");
     setSummary("");
     setCover(null);
-  }, [id]);
+    setPalette("green");
+    if (!previewId) { setBusy(false); return; }
+    setBusy(true);
+    (async () => {
+      try {
+        const p = await api("/wechat/previews/" + encodeURIComponent(previewId));
+        if (p.noteId !== id) throw new Error("这份预览不属于当前笔记，请重新选择笔记。");
+        const fresh = await api("/notes/" + p.noteId);
+        const d = draftId ? await api("/wechat/drafts/" + encodeURIComponent(draftId)) : null;
+        if (d && d.previewId !== p.id) throw new Error("保存记录与预览不对应，请从最近的保存记录重新打开。");
+        if (seq !== generation.current) return;
+        setNotes(ns => ns.some(n => n.id === fresh.id) ? ns.map(n => n.id === fresh.id ? fresh : n) : [...ns, fresh]);
+        setTitle(p.options?.title ?? p.title);
+        setSummary(p.options?.summary ?? p.summary);
+        setPalette(p.palette);
+        setCover(p.options ? (p.options.coverAssetId ? {id:p.options.coverAssetId} : null) : p.cover);
+        // Saved records remain readable snapshots. An unsent stale preview must
+        // be regenerated from the changed note before the save button reappears.
+        if (fresh.revision === p.revision || d) {
+          setPreview(p);
+          setDraft(d);
+          setMessage(d ? "已恢复保存记录。" : "已恢复上次预览，可以继续检查和保存。");
+        } else {
+          setMessage("笔记正文已更新，排版设置已保留。请重新生成手机排版后保存。");
+        }
+      } catch (e: any) {
+        if (seq === generation.current) setMessage(e.message);
+      } finally {
+        if (seq === generation.current) setBusy(false);
+      }
+    })();
+  }, [routeKey]);
   useEffect(() => {
     if (!draft || !["queued", "running"].includes(draft.jobState)) return;
     let stopped = false;
@@ -250,6 +303,7 @@ export function WechatEditor({ go, id, data }: any) {
     setDraft(null);
     try {
       const fresh = await api("/notes/" + selected);
+      if (seq !== generation.current) return;
       setNotes((ns) => ns.map((n) => (n.id === fresh.id ? fresh : n)));
       const p = await post("/notes/" + selected + "/wechat-preview", {
         revision: fresh.revision,
@@ -260,16 +314,18 @@ export function WechatEditor({ go, id, data }: any) {
       });
       if (seq === generation.current) {
         setPreview(p);
+        remember(p);
         setMessage("预览已准备好。检查文章和封面后即可保存。");
       }
     } catch (e: any) {
-      setMessage(e.message);
+      if (seq === generation.current) setMessage(e.message);
     } finally {
-      setBusy(false);
+      if (seq === generation.current) setBusy(false);
     }
   }
   async function save() {
     if (!preview || !connection?.connected) return;
+    const seq = generation.current;
     setBusy(true);
     setMessage("");
     try {
@@ -277,46 +333,46 @@ export function WechatEditor({ go, id, data }: any) {
         previewId: preview.id,
         accountId: connection.id,
       });
+      if (seq !== generation.current) return;
       setDraft(d);
+      remember(preview, d);
       setHistory((h) => [d, ...h.filter((x) => x.id !== d.id)]);
     } catch (e: any) {
+      if (seq !== generation.current) return;
       setMessage(e.message);
-      if (e.code === "WECHAT_CONNECTION_CHANGED")
-        setConnection(await api("/wechat/connection"));
+      if (e.code === "WECHAT_CONNECTION_CHANGED") {
+        try {
+          const c = await api("/wechat/connection");
+          if (seq === generation.current) setConnection(c);
+        } catch { /* Keep the original actionable error. */ }
+      }
     } finally {
-      setBusy(false);
+      if (seq === generation.current) setBusy(false);
     }
   }
   async function resume(d: any, confirmedAbsent = false) {
+    const seq = generation.current;
     setBusy(true);
     try {
-      setDraft(
-        await post("/wechat/drafts/" + d.id + "/retry", { confirmedAbsent }),
-      );
+      const next = await post("/wechat/drafts/" + d.id + "/retry", { confirmedAbsent });
+      if (seq !== generation.current) return;
+      setDraft(next);
       setMessage("已开始核对与恢复。");
     } catch (e: any) {
-      setMessage(e.message);
+      if (seq === generation.current) setMessage(e.message);
     } finally {
-      setBusy(false);
+      if (seq === generation.current) setBusy(false);
     }
   }
   async function openRecord(d: any) {
+    const seq = generation.current;
     setBusy(true);
-    invalidate();
     try {
       const p = await api("/wechat/previews/" + d.previewId);
-      setSelected(p.noteId);
-      setTitle(p.title);
-      setSummary(p.summary);
-      setPalette(p.palette);
-      setCover(p.cover);
-      setPreview(p);
-      setDraft(await api("/wechat/drafts/" + d.id));
-    } catch (e: any) {
-      setMessage(e.message);
-    } finally {
-      setBusy(false);
-    }
+      if (seq !== generation.current) return;
+      go("wechat/" + p.noteId + "?preview=" + p.id + "&draft=" + d.id);
+    } catch (e: any) { if (seq === generation.current) setMessage(e.message); }
+    finally { if (seq === generation.current) setBusy(false); }
   }
   const working = busy || ["queued", "running"].includes(draft?.jobState);
   return (
@@ -363,11 +419,7 @@ export function WechatEditor({ go, id, data }: any) {
               disabled={working}
               value={selected}
               onChange={(e) => {
-                setSelected(e.target.value);
-                invalidate();
-                setTitle("");
-                setSummary("");
-                setCover(null);
+                go("wechat" + (e.target.value ? "/" + e.target.value : ""));
               }}
             >
               <option value="">请选择一篇笔记</option>
@@ -448,13 +500,15 @@ export function WechatEditor({ go, id, data }: any) {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     invalidate();
+                    const seq = generation.current;
                     setBusy(true);
                     try {
-                      setCover(await upload(f, "/media/uploads"));
+                      const uploaded = await upload(f, "/media/uploads");
+                      if (seq === generation.current) setCover(uploaded);
                     } catch (e: any) {
-                      setMessage(e.message);
+                      if (seq === generation.current) setMessage(e.message);
                     } finally {
-                      setBusy(false);
+                      if (seq === generation.current) setBusy(false);
                     }
                   }}
                 />
@@ -484,7 +538,7 @@ export function WechatEditor({ go, id, data }: any) {
               <button
                 className="btn secondary"
                 disabled={working}
-                onClick={() => go("notes/" + note.id)}
+                onClick={() => go("notes/" + note.id + (preview ? "?wechatPreview=" + preview.id : ""))}
               >
                 编辑正文与配图
               </button>
@@ -583,27 +637,13 @@ export function WechatEditor({ go, id, data }: any) {
                   className="btn secondary"
                   onClick={async () => {
                     try {
-                      if (
-                        navigator.clipboard?.write &&
-                        typeof ClipboardItem !== "undefined"
-                      ) {
-                        await navigator.clipboard.write([
-                          new ClipboardItem({
-                            "text/html": new Blob([preview.html], {
-                              type: "text/html",
-                            }),
-                            "text/plain": new Blob(
-                              [preview.title + "\n" + preview.summary],
-                              { type: "text/plain" },
-                            ),
-                          }),
-                        ]);
+                      const result = await copyRichHtml(preview.previewHtml);
+                      if (result === "rich") {
                         setMessage(
                           "已复制排版。手动粘贴时请检查配图；直接保存草稿会自动上传配图。",
                         );
                       } else {
-                        await copyText(note?.body || preview.summary);
-                        setMessage("已复制文字。保留完整图文可下载 HTML。");
+                        setMessage("已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。");
                       }
                     } catch {
                       setMessage("浏览器未允许复制，请下载 HTML。");

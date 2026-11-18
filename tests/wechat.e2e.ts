@@ -1,5 +1,5 @@
 import {testBrowser} from './browser-helper.js';
-import { chromium, expect } from "playwright/test";
+import { expect } from "playwright/test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -73,6 +73,75 @@ try {
         .evaluate((e: HTMLImageElement) => e.naturalWidth),
     )
     .toBeGreaterThan(0);
+  // Unsent previews survive a refresh without posting a remote draft.
+  await expect(page).toHaveURL(/\?preview=/);
+  const originalPreviewUrl = page.url();
+  await page.reload();
+  assert.equal(page.url(), originalPreviewUrl);
+  await expect(page.getByText("已恢复上次预览，可以继续检查和保存。", {exact:true})).toBeVisible();
+  assert.equal(fixture.articles.size, 0);
+  assert.equal(D.get("SELECT count(*) n FROM wechat_previews").n, 1);
+  await page.getByText("调整标题、封面和样式", {exact:true}).click();
+  await page.getByLabel("文章标题", {exact:true}).fill("课堂观察与讨论");
+  await page.getByLabel("排版风格", {exact:true}).selectOption("blue");
+  await page.getByRole("button", {name:"生成手机排版",exact:true}).click();
+  await expect(page.frameLocator('iframe[title="公众号手机预览"]').getByRole("heading", {name:"课堂观察与讨论"})).toBeVisible();
+  await page.getByRole("button", {name:"编辑正文与配图",exact:true}).click();
+  await expect(page).toHaveURL(/#notes\/.*\?wechatPreview=/);
+  await page.getByRole("button", {name:"编辑正文",exact:true}).click();
+  const changedBody = "新版教学安排：学生先比较两种叶片。" + "记录叶片颜色、形态和观察方法，并逐项讨论证据。".repeat(10) + "\n\n文末验证：课后完成观察日记。";
+  await page.getByRole("textbox", {name:"笔记内容",exact:true}).fill(changedBody);
+  await expect(page.getByRole("button", {name:"返回公众号排版",exact:true})).toBeEnabled({timeout:15000});
+  await page.getByRole("button", {name:"保存笔记",exact:true}).click();
+  await expect(page.getByRole("button", {name:"保存笔记",exact:true})).toBeEnabled();
+  await expect(page).toHaveURL(/\?wechatPreview=/);
+  await page.getByRole("button", {name:"返回公众号排版",exact:true}).click();
+  await expect(page.getByText("笔记正文已更新，排版设置已保留。请重新生成手机排版后保存。", {exact:true})).toBeVisible();
+  await expect(page.locator(".wechat-save")).toHaveCount(0);
+  await page.getByText("调整标题、封面和样式", {exact:true}).click();
+  await expect(page.getByLabel("文章标题", {exact:true})).toHaveValue("课堂观察与讨论");
+  await expect(page.getByLabel("排版风格", {exact:true})).toHaveValue("blue");
+  await expect(page.getByLabel("文章摘要", {exact:true})).toHaveValue("");
+  await page.getByRole("button", {name:"生成手机排版",exact:true}).click();
+  await expect(page.getByText("预览已准备好。检查文章和封面后即可保存。", {exact:true})).toBeVisible();
+  await expect(page.frameLocator('iframe[title="公众号手机预览"]').getByText(/文末验证/)).toBeVisible();
+  // Clipboard API, LAN copy-event fallback, and text-only fallback must all
+  // include the actual full body rather than Markdown or just the digest.
+  await page.getByText("下载或复制排版", {exact:true}).click();
+  await page.evaluate(`(() => {
+    Object.defineProperty(navigator, "clipboard", {configurable:true,value:{write:async (items) => {
+      window.copied = {html:await (await items[0].getType("text/html")).text(),text:await (await items[0].getType("text/plain")).text()};
+    }}});
+  })()`);
+  await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).copied?.text||"")).toContain("文末验证：课后完成观察日记。");
+  let copied = await page.evaluate(()=>(window as any).copied);
+  assert.ok(copied.html.includes("data:image/jpeg;base64,"));
+  assert.ok(!copied.html.includes("/api/assets/"));
+  assert.ok(copied.text.includes("课堂观察与讨论"));
+  await page.evaluate(`(() => {
+    Object.defineProperty(navigator, "clipboard", {configurable:true,value:undefined});
+    window.copied = null;
+    document.execCommand = (() => {
+      const data = new DataTransfer();
+      document.dispatchEvent(new ClipboardEvent("copy", {clipboardData:data,cancelable:true}));
+      window.copied = {html:data.getData("text/html"),text:data.getData("text/plain")};
+      return true;
+    });
+  })()`);
+  await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
+  copied = await page.evaluate(()=>(window as any).copied);
+  assert.ok(copied.text.includes("文末验证：课后完成观察日记。"));
+  assert.ok(copied.html.includes("data:image/jpeg;base64,"));
+  await page.evaluate(`(() => {
+    document.execCommand = () => false;
+    Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async(text) => {window.copied = {text};}}});
+  })()`);
+  await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
+  await expect(page.getByText("已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。",{exact:true})).toBeVisible();
+  assert.ok((await page.evaluate(()=>(window as any).copied.text)).includes("文末验证：课后完成观察日记。"));
+  await page.reload();
+  await expect(page.getByText("已恢复上次预览，可以继续检查和保存。",{exact:true})).toBeVisible();
   for (const theme of ["scholar", "obsidian"])
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -114,6 +183,7 @@ try {
   ).toBeVisible({ timeout: 30000 });
   assert.equal(fixture.articles.size, 1);
   await page.reload();
+  await expect(page.getByRole("button", {name:"已保存到公众号草稿箱",exact:true})).toBeDisabled();
   await expect(page.locator(".wechat-history-row")).toHaveCount(1);
   await page.locator(".wechat-history-row").click();
   await expect(
@@ -139,6 +209,9 @@ try {
           "guided admin connection",
           "automatic cover and summary",
           "sandbox authenticated image rendering",
+          "unsent preview refresh and source-edit roundtrip with preserved choices",
+          "stale preview blocked until regenerated from current note",
+          "complete article clipboard in rich, LAN fallback and plain text modes",
           "two themes desktop/mobile",
           "persistent worker -> remote draft receipt",
           "refresh and saved history, no duplicate",

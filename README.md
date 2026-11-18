@@ -6,6 +6,8 @@
 
 第一次接手请先看 [HANDOFF.md](HANDOFF.md)。详细产品设计在 [docs/product](docs/product)，Mac 开发说明在 [docs/MAC_DEVELOPMENT.md](docs/MAC_DEVELOPMENT.md)。
 
+仓库后续进度：[公众号创作衔接修复](docs/公众号创作衔接修复-2026-11-18.md)，包含预览刷新恢复、正文编辑后返回排版，以及完整图文复制。安装版仍以已发布版本为准。
+
 ## Mac：从仓库启动开发
 
 要求 macOS 14 或更新版本，支持 Apple Silicon / Intel，需要联网下载依赖。先让仓库所有者给你的 GitHub 账号访问权限；GitHub 账号密码不能直接用作 Git HTTPS 密码，可用 GitHub CLI 或 GitHub Desktop 完成登录。

@@ -20,3 +20,56 @@ export async function copyText(text: string) {
   node.remove();
   if (!success) throw new Error("浏览器不支持自动复制，请选择内容手动复制");
 }
+
+// Use the rendered, frozen article for both clipboard formats. The text flavor
+// must include the whole article, even when pasted into a plain text editor.
+export async function copyRichHtml(source: string): Promise<"rich" | "text"> {
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  doc.querySelectorAll("script,style,iframe,object,embed").forEach(n => n.remove());
+  const html = doc.body.innerHTML, plain = doc.body.cloneNode(true) as HTMLElement;
+  plain.querySelectorAll("br").forEach(n => n.replaceWith("\n"));
+  plain.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,tr,blockquote,section,div").forEach(n => n.append("\n"));
+  plain.querySelectorAll("td,th").forEach(n => n.append("\t"));
+  const text = (plain.textContent || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([html], {type: "text/html"}),
+        "text/plain": new Blob([text], {type: "text/plain"}),
+      })]);
+      return "rich";
+    } catch { /* LAN HTTP and some browser permissions need the copy-event path. */ }
+  }
+  const node = document.createElement("div"), focus = document.activeElement as HTMLElement | null;
+  const selection = window.getSelection(), ranges: Range[] = [];
+  if (selection) for (let i = 0; i < selection.rangeCount; i++) ranges.push(selection.getRangeAt(i).cloneRange());
+  node.contentEditable = "true";
+  node.setAttribute("aria-hidden", "true");
+  node.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
+  node.innerHTML = html;
+  const onCopy = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.clipboardData.setData("text/html", html);
+    event.clipboardData.setData("text/plain", text);
+    event.preventDefault();
+  };
+  let copied = false;
+  try {
+    document.body.append(node);
+    node.focus({preventScroll:true});
+    const range = document.createRange(); range.selectNodeContents(node);
+    selection?.removeAllRanges(); selection?.addRange(range);
+    document.addEventListener("copy", onCopy);
+    copied = document.execCommand("copy");
+  } catch { /* Last fallback retains the complete readable body. */ }
+  finally {
+    document.removeEventListener("copy", onCopy);
+    node.remove();
+    focus?.focus({preventScroll:true});
+    selection?.removeAllRanges();
+    for (const range of ranges) selection?.addRange(range);
+  }
+  if (copied) return "rich";
+  await copyText(text);
+  return "text";
+}

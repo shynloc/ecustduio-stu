@@ -233,6 +233,13 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
     name: offline.name,
     imageCount: images.length,
     palette,
+    // Keep the user's choices separate from automatically generated values so
+    // editing the source can regenerate its title, summary and cover correctly.
+    options: {
+      title: b.title || "",
+      summary: b.summary || "",
+      coverAssetId: b.coverAssetId || null,
+    },
     warning: note.sources?.some(
       (s: any) => s.needsReview || s.coverage === "partial",
     )
