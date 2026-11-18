@@ -177,7 +177,9 @@ export async function exportFile(
     if (input.format === "pdf" && buffer.subarray(0, 4).toString() !== "%PDF")
       err("EXPORT_INVALID", "PDF文件结构无效");
     if (input.targetType === "version") canExport(input.targetId, input.mode);
-    const name = `EcuStudio_${input.payload.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 65)}_${input.targetId?.slice(0, 8) || token.slice(0, 8)}.${input.format}`;
+    // A revision can intentionally retain the same title in the same conversation.
+    const fileSuffix = input.targetType === "conversation" ? token : input.targetId?.slice(0,8) || token.slice(0,8);
+    const name = `EcuStudio_${input.payload.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 65)}_${fileSuffix}.${input.format}`;
     const mime: Record<string, string> = {
       html: "text/html",
       md: "text/markdown",

@@ -52,4 +52,8 @@ jobs:
           path: |
             test-results/pipeline-ui/
             test-results/wechat-ui/
+            test-results/course-delivery/*.pptx
+            test-results/course-delivery/*.docx
+            test-results/course-delivery/source.txt
+            test-results/course-delivery/fixture-evidence.json
           retention-days: 7

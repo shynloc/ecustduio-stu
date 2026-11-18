@@ -122,7 +122,10 @@ export async function runNativeExplore(input: any, progress: any, signal: AbortS
   const usage = newUsage(); addUsage(usage, response.usage);
   for (const step of result.tools) progress("retrieve", { message: step.status === "failed" ? "部分联网操作未完成" :
     step.action === "search" ? "已完成联网搜索" : "已完成网页阅读", name: step.name });
-  return { ...result, ...extractFilePlan(result.text), usage, model: response.model || cfg.model, thinkingMode: cfg.thinkingMode || "disabled",
+  const delivery=extractFilePlan(result.text);
+  if(result.sources.length && delivery.fileDrafts?.some(d=>!(/\[S\d+\]/.test(d.content))))
+    err("REFERENCE_INVALID","有独立文件缺少课程来源编号，请重试本轮",422);
+  return { ...result, ...delivery, usage, model: response.model || cfg.model, thinkingMode: cfg.thinkingMode || "disabled",
     engine: "native", title: typeof message.title === "string" ? message.title.trim().slice(0, 120) : undefined,
     conversationId: input.conversationId, _providerMessages: [assistantMessage(message)] };
 }

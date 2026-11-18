@@ -42,20 +42,51 @@ export const fileTool = {
   },
 };
 export const fileInstructions =
-  '用户索要文件、演示稿、讲义、网页或要求修改前一版时，直接创作可用成稿并交付，不要指导用户自行制作。可用 deliver_files 时优先调用；否则写出完整正文，末尾独占一行附 :::ecustudio-files {"title":"文件标题","formats":["pptx"]}。支持 docx、pptx、pdf、md、html。每页演示用 ## 标题另起一节。普通提问直接回答。文件由工作台在本对话生成，引用仍用本轮真实来源编号。';
+  '用户索要文件、演示稿、讲义、网页或要求修改前一版时，直接创作可用成稿并交付，不要指导用户自行制作。可用 deliver_files 时优先调用；否则写出完整正文，末尾独占一行附 :::ecustudio-files {"title":"文件标题","formats":["pptx"]}。支持 docx、pptx、pdf、md、html。每页演示用 ## 标题另起一节。教师材料给出分步教学、时间安排和评价要点；学生材料用学生能执行的指令和可填写的记录表，不代填实验结论。每份使用课程材料的文件各自引用真实编号。只改指定文件时只交付该文件的新稿。无本地工具而需交付不同正文时，每份正文后各写一行对应的 :::ecustudio-files 说明。普通提问直接回答。文件由工作台在本对话生成，引用仍用本轮真实来源编号。';
 
 export function extractFilePlan(text: string) {
-  const marker = text.match(/(?:^|\n):::ecustudio-files[ \t]+([^\n]+)\s*$/);
-  if (!marker) return { text };
-  let plan: z.infer<typeof FilePlan>;
-  try {
-    plan = FilePlan.parse(JSON.parse(marker[1]));
-  } catch {
-    return err("INVALID_DELIVERY", "文件交付说明格式错误，请重试本轮", 422);
+  const lines = text.trimEnd().split("\n");
+  if (!/^:::ecustudio-files[ \t]+/.test(lines.at(-1) || "")) return { text };
+  const drafts: z.infer<typeof FileCall>[] = [];
+  let start = 0,
+    fence = "";
+  for (const [i, line] of lines.entries()) {
+    const delimiter = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (
+      delimiter &&
+      (!fence || (!delimiter[2].trim() && delimiter[1].startsWith(fence)))
+    ) {
+      fence = fence ? "" : delimiter[1];
+      continue;
+    }
+    if (fence || !/^:::ecustudio-files[ \t]+/.test(line)) continue;
+    const content = lines.slice(start, i).join("\n").trim();
+    if (!content) err("EMPTY_DELIVERY", "未收到可生成文件的正文", 422);
+    try {
+      drafts.push(
+        FileCall.parse({
+          ...FilePlan.parse(
+            JSON.parse(line.slice(":::ecustudio-files ".length)),
+          ),
+          content,
+        }),
+      );
+    } catch {
+      err("INVALID_DELIVERY", "文件交付说明格式错误，请重试本轮", 422);
+    }
+    start = i + 1;
   }
-  const content = text.slice(0, marker.index).trim();
-  if (!content) return err("EMPTY_DELIVERY", "未收到可生成文件的正文", 422);
-  return { text: content, filePlan: plan };
+  if (!drafts.length || start !== lines.length) return { text };
+  if (drafts.reduce((n, d) => n + d.formats.length, 0) > 5)
+    err("BUDGET_EXCEEDED", "单轮最多交付五个文件");
+  if (drafts.length === 1) {
+    const { content, ...filePlan } = drafts[0];
+    return { text: content, filePlan };
+  }
+  return {
+    text: drafts.map((d) => "# " + d.title + "\n\n" + d.content).join("\n\n"),
+    fileDrafts: drafts,
+  };
 }
 
 // Render on the server. The model supplies text and a format, never a path, asset ID, or renderer.
@@ -110,11 +141,12 @@ async function renderDraft(
     text: string;
     claimIds: string[];
   }[] = [];
+  let explicitHeading = false;
   let heading = plan.title,
     lines: string[] = [];
   function flush() {
     const text = lines.join("\n").trim();
-    if (text)
+    if (text || explicitHeading)
       blocks.push({
         id: "section-" + (blocks.length + 1),
         title: heading,
@@ -134,12 +166,16 @@ async function renderDraft(
       )
         fence = "";
     }
-    const match = !fence && line.match(/^#{1,3}\s+(.+)$/);
+    const match = !fence && line.match(/^(#{1,2})\s+(.+)$/);
     if (match) {
-      if (heading !== plan.title && !lines.length) lines.push(heading);
       flush();
-      heading = match[1];
-    } else lines.push(line);
+      heading = match[2];
+      explicitHeading = !(
+        match[1] === "#" &&
+        heading === plan.title &&
+        !blocks.length
+      );
+    } else lines.push(!fence ? line.replace(/^#{3,6}\s+/, "") : line);
   }
   flush();
   if (!blocks.length)
@@ -149,6 +185,12 @@ async function renderDraft(
       text: draft.content,
       claimIds: [],
     });
+  const cited = new Set(
+    Array.from(draft.content.matchAll(/\[(S\d+)\]/g), (m) => m[1]),
+  );
+  const sources = cited.size
+    ? response.sources.filter((s: any) => cited.has(s.id))
+    : response.sources;
   const payload = {
     schemaVersion: "1.0",
     title: plan.title,
@@ -160,9 +202,16 @@ async function renderDraft(
     conversationId: input.conversationId,
     chatMarkdown: draft.content,
     blocks,
-    sources: response.sources.map((s: any) => ({
+    sources: sources.map((s: any) => ({
       id: s.id,
-      title: "[" + s.id + "] " + s.title,
+      title:
+        "[" +
+        s.id +
+        "] " +
+        s.title +
+        (s.kind === "note" && s.revision ? " · 笔记 v" + s.revision : ""),
+      ...(s.noteId ? { noteId: s.noteId, revision: s.revision } : {}),
+      ...(s.snapshotId ? { snapshotId: s.snapshotId } : {}),
       url: s.url,
       publisher: s.provider || s.kind,
       published: s.published,

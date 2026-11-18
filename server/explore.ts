@@ -386,6 +386,7 @@ export async function runExplore(
     },
   ];
   const turnStart = messages.length;
+  let correctionOutputs: string | undefined;
   let requestedFiles: {title:string;formats:string[]} | undefined;
   for (let round = 0; round < Math.min(cfg.maxRequests, 8); round++) {
     signal.throwIfAborted();
@@ -460,18 +461,23 @@ export async function runExplore(
       }
       continue;
     }
-    const {text,filePlan}=drafts.length ? {
+    const parsed=drafts.length ? {
       text:drafts.length===1 ? drafts[0].content : drafts.map((d:any)=>"# "+d.title+"\n\n"+d.content).join("\n\n"),
+      fileDrafts: drafts.length>1 ? drafts : undefined,
       filePlan: drafts.length===1 ? {title:drafts[0].title,formats:drafts[0].formats} : undefined
     } : extractFilePlan(String(m.content||"").trim());
+    const {text,filePlan,fileDrafts}=parsed;
     if(filePlan)requestedFiles=filePlan;
     const finalMessage=drafts.length ? {role:"assistant",content:text,reasoning_content:m.reasoning_content||""} : m;
     if (!text) err("MODEL_EMPTY", "模型返回了空回答");
+    const outputs = fileDrafts?.map((d:any)=>[...d.formats].sort().join("+")).sort().join(",") ?? filePlan?.formats.slice().sort().join("+");
     const citations = [...text.matchAll(/\[(S\d+)\]/g)].map((m) => m[1]);
     if (
+      (correctionOutputs && correctionOutputs !== outputs) ||
       citations.some((c) => !sources.some((s) => s.id === c)) ||
-      (sources.length && !citations.length)
+      (sources.length && (!citations.length || fileDrafts?.some((d:any)=>!(/\[S\d+\]/.test(d.content)))))
     ) {
+      if (fileDrafts?.length) correctionOutputs ??= outputs;
       messages.push(
         assistantMessage(finalMessage),
         {
@@ -479,7 +485,7 @@ export async function runExplore(
           content:
             "请使用实际来源编号引用支持对应结论。可用编号：" +
             sources.map((s) => s.id).join("、") +
-            "。不得使用其他编号。重新给出完整回答。",
+            "。不得使用其他编号。每份基于材料的独立文件都要标出引用，请重新给出所有要求的成稿及交付格式。",
         },
       );
       continue;
@@ -491,7 +497,7 @@ export async function runExplore(
     return {
       text,
       filePlan:requestedFiles,
-      ...(drafts.length>1 ? {fileDrafts:drafts} : {}),
+      ...(fileDrafts ? {fileDrafts} : {}),
       sources,
       warnings: [...new Set(warnings)],
       usage,

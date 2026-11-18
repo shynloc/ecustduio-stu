@@ -130,6 +130,28 @@ test("仅本地模式不发送联网工具及旧网络回复，官方搜索不�
   assert.equal(result.engine, "controlled");
 });
 
+test("课程双附件逐份保留引用，官方标记与本地工具均按受众分稿", async () => {
+  const course = (await api("POST", "/api/notes", {title:"纸桥测试资料",body:"两本书间距 12 厘米，分别测量平桥和折桥。"})).json();
+  const chat = (await api("POST", "/api/conversations", {})).json();
+  const input = E.freezeExplore({conversationId:chat.id,prompt:"老师用的 PPT 和学生用的 Word",mode:"web",webEngine:"native",noteIds:[course.id]},user);
+  const first='课堂指导 [S1]。\n:::ecustudio-files {"title":"教师指引","formats":["pptx"]}';
+  const native=(text:string)=>E.runExplore(input,()=>{},signal(),mock({choices:[{message:{content:text}}]}));
+  const marker='\n:::ecustudio-files {"title":"学生活动单","formats":["docx"]}';
+  await assert.rejects(native(first+"\n\n请填写实验记录。"+marker),{code:"REFERENCE_INVALID"});
+  const result=await native(first+"\n\n填写实测结果 [S1]。"+marker);
+  assert.deepEqual(result.fileDrafts.map((d:any)=>[d.title,d.formats,d.content]),[
+    ["教师指引",["pptx"],"课堂指导 [S1]。"],["学生活动单",["docx"],"填写实测结果 [S1]。"]]);
+  let round=0;
+  const controlled = (async()=>{
+    const drafts=[{title:"教师指引",formats:["pptx"],content:"课堂指导 [S1]。"},
+      {title:"学生活动单",formats:["docx"],content:round++ ? "填写实测结果 [S1]。" : "填写实验记录。"}];
+    return Response.json({choices:[{message:{role:"assistant",content:null,tool_calls:drafts.map((d,i)=>({
+      id:"file"+i,type:"function",function:{name:"deliver_files",arguments:JSON.stringify(d)}}))}}]});
+  }) as typeof fetch;
+  const fixed=await E.runExplore({...input,webEngine:"controlled",mode:"auto"},()=>{},signal(),controlled);
+  assert.equal(round,2);assert.ok(fixed.fileDrafts.every((d:any)=>d.content.includes("[S1]")));
+});
+
 test("禁用账号或授权后，即使原生请求返回也不能提交", async () => {
   const input = E.freezeExplore({ conversationId: conversation.id, prompt: "写提纲", mode: "web", webEngine: "native", noteIds: [] }, user);
   const transport = (async () => {

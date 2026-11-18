@@ -1,3 +1,5 @@
+import {paginateText} from "../shared/visual.js";
+import {conversationWord} from "./conversation-word.js";
 import {marked} from "marked";
 import sanitize from "sanitize-html";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -86,6 +88,8 @@ export async function render(p: any, format: string, out: string) {
           .map((row) => row.map(cell).join(","))
           .join("\r\n"),
     );
+  } else if (format === "docx" && p.chatMarkdown) {
+    writeFileSync(out, await conversationWord(p));
   } else if (format === "docx") {
     const children: any[] = [
       new Paragraph({ text: p.title, heading: HeadingLevel.TITLE }),
@@ -192,7 +196,8 @@ export async function render(p: any, format: string, out: string) {
       },
     ];
     for (const b of pages) {
-      for (const [part, txt] of chunks(b.text).entries()) {
+      const parts = p.chatMarkdown ? paginateText(b.text) : chunks(b.text);
+      for (const [part, txt] of parts.entries()) {
         const slide = ppt.addSlide();
         slide.background = { color: "F7F8FA" };
         slide.addShape(ppt.ShapeType.rect, {
@@ -229,7 +234,7 @@ export async function render(p: any, format: string, out: string) {
           y: 2.2,
           w: 11.8,
           h: 4.2,
-          fontSize: 19,
+          fontSize: p.chatMarkdown && txt.length < 150 ? 24 : 19,
           color: "253442",
           valign: "top",
           margin: 0,
@@ -253,7 +258,7 @@ export async function render(p: any, format: string, out: string) {
             "\n引用：" +
             (b.claimIds || []).join(",") +
             "\n来源：" +
-            p.sources.map((s: any) => s.url).join("\n"),
+            p.sources.map((s: any) => p.chatMarkdown ? [s.title,s.url].filter(Boolean).join(" · ") : s.url).join("\n"),
         );
       }
     }
