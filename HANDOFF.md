@@ -120,7 +120,17 @@
 
 ### 2026-11-19 公开源码整合验收
 
-基于上游 `fdf7159` 合入本机开发成果。Intel Mac 上通过 `check`、`build`、`test:dev`，核心测试 43 项通过、1 项 Windows 专用测试跳过。五组 UI 回归覆盖资料管线、公众号、笔记本、角色导航、对话文件；公众号测试保留了刷新恢复、返回编辑、重新生成和完整正文复制的断言。模型与微信协议使用夹具，文件实际渲染并读取验证。其他平台的结果请查看对应提交的 [Actions](https://github.com/shynloc/ecustduio-stu/actions)。
+基于上游 `fdf7159` 合入本机开发成果。Intel Mac 上通过 `check`、`build`、`test:dev`，核心测试 43 项通过、1 项 Windows 专用测试跳过。五组 UI 回归覆盖资料管线、公众号、笔记本、角色导航、对话文件；公众号测试保留了刷新恢复、返回编辑、重新生成和完整正文复制的断言。模型与微信协议使用夹具，文件实际渲染并读取验证。
+
+公开源码提交 [`37094d4`](https://github.com/shynloc/ecustduio-stu/commit/37094d40d65d63b96eb34b43ee7871a7ca5c5604) 的三平台 CI 已于 2026-11-19（北京时间）通过。[最终运行记录（第 2 次尝试）](https://github.com/shynloc/ecustduio-stu/actions/runs/44343975003/attempts/2)
+
+| 平台 | 最终结果 |
+| --- | --- |
+| Windows（`windows-latest`） | [首次通过](https://github.com/shynloc/ecustduio-stu/actions/runs/44343975003/job/134941254796) |
+| Intel Mac（`macos-15-intel`） | [首次通过](https://github.com/shynloc/ecustduio-stu/actions/runs/44343975003/job/134941254927) |
+| Apple Silicon Mac（`macos-15`，自检日志确认 `arm64`） | [同一提交重跑通过](https://github.com/shynloc/ecustduio-stu/actions/runs/44343975003/job/134952578492) |
+
+Apple Silicon [首次作业](https://github.com/shynloc/ecustduio-stu/actions/runs/44343975003/job/134941254102) 因 GitHub 托管 arm64 runner 容量不足而取消，作业步骤数为零。仅重跑该作业后，类型检查、构建、核心测试、开发入口、浏览器测试及 Mac 打包检查均通过。此次恢复无需修改源码或工作流。
 
 ### 尚待验收
 
