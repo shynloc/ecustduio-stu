@@ -103,6 +103,12 @@ async function converted(a: any, format: string) {
           "此工作台需要安装 LibreOffice 才能显示 Office 真实分页。安装后可在此重试。",
           503,
         );
+      if (e.killed || e.code === "ETIMEDOUT")
+        err(
+          "PREVIEW_TIMEOUT",
+          "LibreOffice 在 90 秒内没有完成分页。请重试，或下载原文件打开。",
+          503,
+        );
       err("PREVIEW_FAILED", "Office 分页预览未完成，可重试或下载原文件。", 503);
     } finally {
       await rm(dir, { recursive: true, force: true, maxRetries: 3 });

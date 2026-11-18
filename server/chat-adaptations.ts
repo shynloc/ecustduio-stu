@@ -380,7 +380,13 @@ export function queueAdaptation(
       j.id,
       now(),
     );
-    run("UPDATE conversations SET updated_at=? WHERE id=?", now(), cid);
+    const displayTitle = op.source?.title || op.upload?.name;
+    run(
+      "UPDATE conversations SET title=CASE WHEN title='新的探索' THEN coalesce(?,title) ELSE title END,updated_at=? WHERE id=?",
+      displayTitle?.slice(0, 60) || null,
+      now(),
+      cid,
+    );
     return j;
   });
 }
