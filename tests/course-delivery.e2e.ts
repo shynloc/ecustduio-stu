@@ -52,6 +52,10 @@ process.env.DEEPSEEK_API_KEY = "synthetic-course-fixture";
 const D = await import("../server/db.js");
 const { buildApp } = await import("../server/app.js"),
   { Worker } = await import("../server/tasks.js");
+assert.equal(D.dataDir, process.env.ECUSTUDIO_DATA_DIR);
+const { derivativeFixture, verifyDerivatives } =
+  await import("./course-derivatives.js");
+const { wechatFixture } = await import("./wechat-fixture.js");
 D.run(
   "UPDATE settings SET body=?",
   D.json({
@@ -60,7 +64,15 @@ D.run(
     exploreEngine: "controlled",
   }),
 );
-const app = await buildApp(false),
+const fixture = await wechatFixture(),
+  mediaModel = derivativeFixture(out);
+const app = await buildApp(
+    false,
+    {},
+    undefined,
+    fixture.client,
+    fixture.secrets,
+  ),
   base = await app.listen({ host: "127.0.0.1", port: 0 }),
   browser = await testBrowser();
 let turns = 0,
@@ -83,58 +95,64 @@ try {
 if (process.env.ECUSTUDIO_REQUIRE_OFFICE_PREVIEW === "1")
   assert.ok(hasOffice, "CI requires LibreOffice");
 
-const worker = new Worker(undefined, undefined, async (_url, opts) => {
-  const b = JSON.parse(String(opts?.body));
-  assert.ok(b.tools.some((t: any) => t.function?.name === "deliver_files"));
-  const turn = JSON.parse(b.messages.at(-1).content);
-  assert.ok(
-    turn.retrievedSources.some(
-      (s: any) =>
-        s.id === "S1" &&
-        s.title === fileName &&
-        s.kind === "attachment" &&
-        s.excerpt.trim() === material.body,
-    ),
-  );
-  attempts++;
-  if (attempts === 1) {
-    await hold;
-    return Response.json(
-      { error: { message: "fixture unavailable" } },
-      { status: 503 },
-    );
-  }
-  turns++;
-  if (turns === 2) {
-    assert.match(turn.request, /只改学生/);
-    assert.equal(turn.revisionTarget.content, sheet.content);
-    assert.equal(turn.revisionTarget.format, "docx");
+const worker = new Worker(
+  fixture.client,
+  fixture.secrets,
+  async (_url, opts) => {
+    const b = JSON.parse(String(opts?.body));
+    const derivative = await mediaModel.respond(String(_url), b);
+    if (derivative) return derivative;
+    assert.ok(b.tools.some((t: any) => t.function?.name === "deliver_files"));
+    const turn = JSON.parse(b.messages.at(-1).content);
     assert.ok(
-      b.messages.some(
-        (m: any) =>
-          m.role === "assistant" && m.content?.includes(sheet.content),
+      turn.retrievedSources.some(
+        (s: any) =>
+          s.id === "S1" &&
+          s.title === fileName &&
+          s.kind === "attachment" &&
+          s.excerpt.trim() === material.body,
       ),
     );
-  }
-  const drafts = turns === 1 ? [teacher, sheet] : [revision];
-  return Response.json({
-    model: "controlled-course-fixture",
-    choices: [
-      {
-        finish_reason: "tool_calls",
-        message: {
-          role: "assistant",
-          content: null,
-          tool_calls: drafts.map((d, i) => ({
-            id: "lesson" + i,
-            type: "function",
-            function: { name: "deliver_files", arguments: JSON.stringify(d) },
-          })),
+    attempts++;
+    if (attempts === 1) {
+      await hold;
+      return Response.json(
+        { error: { message: "fixture unavailable" } },
+        { status: 503 },
+      );
+    }
+    turns++;
+    if (turns === 2) {
+      assert.match(turn.request, /只改学生/);
+      assert.equal(turn.revisionTarget.content, sheet.content);
+      assert.equal(turn.revisionTarget.format, "docx");
+      assert.ok(
+        b.messages.some(
+          (m: any) =>
+            m.role === "assistant" && m.content?.includes(sheet.content),
+        ),
+      );
+    }
+    const drafts = turns === 1 ? [teacher, sheet] : [revision];
+    return Response.json({
+      model: "controlled-course-fixture",
+      choices: [
+        {
+          finish_reason: "tool_calls",
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: drafts.map((d, i) => ({
+              id: "lesson" + i,
+              type: "function",
+              function: { name: "deliver_files", arguments: JSON.stringify(d) },
+            })),
+          },
         },
-      },
-    ],
-  });
-});
+      ],
+    });
+  },
+);
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 try {
   const page = await browser.newPage();
@@ -415,6 +433,17 @@ try {
   );
   assert.ok(doc(v1.bytes).includes("我的发现"));
   assert.ok(doc(v2.bytes).includes("用证据解释"));
+  await verifyDerivatives({
+    page,
+    base,
+    ask,
+    worker,
+    D,
+    fixture,
+    model: mediaModel,
+    out,
+    hasOffice,
+  });
   console.log(
     "Course workflow: drag/drop, progress and failed-turn retry, targeted revision, original bytes recovered; Office pages: " +
       (hasOffice ? "rendered" : "runtime unavailable, recovery UI verified") +
@@ -423,5 +452,6 @@ try {
 } finally {
   await browser.close();
   await app.close();
+  await fixture.close();
   D.db.close();
 }

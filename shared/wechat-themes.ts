@@ -162,3 +162,8 @@ export function articleProfile(id: WechatTheme) {
     ? undefined
     : articleProfiles[id];
 }
+
+export const wechatThemeLabels: Record<WechatTheme,string> = {
+  green:"书院绿", blue:"教育蓝", ink:"简洁黑白",
+  ...Object.fromEntries(Object.entries(articleProfiles).map(([id,p])=>[id,p.name])),
+} as Record<WechatTheme,string>;

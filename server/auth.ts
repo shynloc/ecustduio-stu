@@ -158,7 +158,7 @@ export function checkJobAccess(jobId: string, user: any, mutation = false) {
     err("FORBIDDEN", "无权访问此制作任务", 403);
   if (job.type === "media" && get("SELECT owner_id FROM media_jobs WHERE job_id=?", job.id)?.owner_id !== user.id)
     err("FORBIDDEN", "无权访问此媒体任务", 403);
-  if(job.type==="conversation-export" && get("SELECT owner_id FROM conversations WHERE id=?",parse(job.input).conversationId)?.owner_id!==user.id)
+  if(["conversation-export","chat-narration","chat-film"].includes(job.type) && get("SELECT owner_id FROM conversations WHERE id=?",parse(job.input).conversationId)?.owner_id!==user.id)
     err("FORBIDDEN","无权访问其他账号的对话文件任务",403);
   if (job.type === "explore") {
     const owner = get(

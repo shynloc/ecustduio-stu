@@ -2,7 +2,7 @@ import {join} from 'node:path';
 import {readFileSync,writeFileSync} from 'node:fs';
 import type {VisualMaster} from '../shared/visual.js';
 import {narrationParts} from '../shared/visual-edit.js';
-import {get,hash,err} from './db.js';
+import {get,hash,err,tx} from './db.js';
 import {assetBuffer} from './domain.js';
 import {grantMediaAsset,checkMediaAsset} from './media-access.js';
 import {workflowActor} from './workflow-agent.js';
@@ -17,7 +17,8 @@ export function musicAsset(id:string,actorId:string){
  const format=formats[item.a.mime];if(!format||item.data.length>30*1024*1024)err('MUSIC_INVALID','背景音乐支持 WAV、MP3、OGG、FLAC，最多30MB',422);
  return {...item,format};
 }
-export async function visualNarration(master:VisualMaster,options:any,ctx:any){
+export const narKey=(uid:string,text:string,voice:string)=>'visual-audio:'+uid+':'+hash({text,voice});
+export async function visualNarration(master:{scenes: Pick<VisualMaster['scenes'][number],'id'|'title'|'narration'|'seconds'|'hold'>[]},options:any,ctx:any){
  const {input,dir,signal,transport,check,progress,metadata}=ctx;
  const {storeWorkflowArtifact}=await import('./workflows.js');
  const allParts=master.scenes.map(s=>narrationParts(s.narration,options.subtitles));
@@ -26,15 +27,16 @@ export async function visualNarration(master:VisualMaster,options:any,ctx:any){
  for(const [index,s] of master.scenes.entries()){
   const start=elapsed,assetIds:string[]=[];let captionText='';
   for(const text of allParts[index]){
-   check();workflowActor(input.actorId);progress('narration',{message:`生成或复用配音 ${index+1}/${master.scenes.length}`});
-   const key='visual-audio:'+input.actorId+':'+hash({text,voice:options.voice});
+   check();workflowActor(input.actorId,false);progress('narration',{message:`生成或复用配音 ${index+1}/${master.scenes.length}`});
+   const key=narKey(input.actorId,text,options.voice);
    let item=get("SELECT * FROM artifacts WHERE job_id=? AND format='wav'",key);
    if(!item){
+    workflowActor(input.actorId);
     const response=await mediaRequest('/v1/tools/tts',jsonOptions({text,voice_id:options.voice,format:'wav',filter_markdown:true}),signal,transport);
     const wav=readWav(await responseBytes(response,90*1024*1024),true),raw=join(dir,'raw.wav'),normal=join(dir,'normal.wav');
     writeFileSync(raw,makeWav(wav.pcm,wav.sampleRate,wav.channels));
     await command(ffmpegPath(),['-v','error','-y','-i',raw,'-ac','1','-ar','16000','-c:a','pcm_s16le',normal],signal);
-    check();item=storeWorkflowArtifact(readFileSync(normal),`${s.title.replace(/[\\/:*?"<>|]/g,'_').slice(0,65)}_AI配音.wav`,'wav',key,metadata.versionId,{...metadata,text,voice:options.voice});grantMediaAsset(item.asset_id,input.actorId);
+    check();item=tx(()=>{const file=storeWorkflowArtifact(readFileSync(normal),`${s.title.replace(/[\\/:*?"<>|]/g,'_').slice(0,65)}_AI配音.wav`,'wav',key,metadata.versionId,{...metadata,text,voice:options.voice});grantMediaAsset(file.asset_id,input.actorId);return file;});
    }
    let wav=readWav(assetBuffer(item.asset_id).data);
    if(options.speed!==1){const source=join(dir,'speed-source.wav'),out=join(dir,'speed.wav');writeFileSync(source,makeWav(wav.pcm));await command(ffmpegPath(),['-v','error','-y','-i',source,'-af','atempo='+options.speed,'-c:a','pcm_s16le',out],signal);wav=readWav(readFileSync(out));}

@@ -1,3 +1,4 @@
+import {ChatAdaptation} from "./ChatAdaptation";
 import {useChatMaterials,ChatMaterials} from "./ChatMaterials";
 import {uid} from "./compat";
 import { ConversationFiles } from "./ConversationFiles";
@@ -637,7 +638,7 @@ export function Explore({ data, act, go, search }: any) {
   useEffect(()=>{
     const requested=new URLSearchParams(location.hash.split("?")[1]).get("file");
     if(requested){
-      const card=document.getElementById("chat-file-"+requested);
+      const card=document.getElementById("chat-file-"+requested) || document.getElementById("chat-message-"+new URLSearchParams(location.hash.split("?")[1]).get("message"));
       card?.focus({preventScroll:true});card?.scrollIntoView({block:"center"});
     }else end.current?.scrollIntoView({behavior:"smooth",block:"nearest"});
   },[current?.id,current?.messages?.length]);
@@ -656,7 +657,7 @@ export function Explore({ data, act, go, search }: any) {
       }
       const payload={prompt,mode,thinkingMode,webEngine,webAction,noteIds:selected,queueTurn:true,
         attachmentIds:materials.items.flatMap(i=>i.id?[i.id]:[]),sourceUrls:materials.items.flatMap(i=>i.url?[i.url]:[]),
-        ...(target?{reviseId:target.id}:{})};
+        ...(target?.deriveKind?{derive:{kind:target.deriveKind,artifactId:target.id}}:target?{reviseId:target.id}:{})};
       const signature=JSON.stringify([c.id,payload]);
       if(request.current.signature!==signature)request.current={signature,key:uid()};
       await post("/conversations/"+c.id+"/messages",payload,request.current.key);
@@ -786,7 +787,7 @@ export function Explore({ data, act, go, search }: any) {
               </div>
             )}
             {current?.messages?.map((m: any) => (
-              <article className={"chat-message " + m.role} key={m.id}>
+              <article id={"chat-message-"+m.id} tabIndex={-1} className={"chat-message " + m.role} key={m.id}>
                 <div className="message-meta">
                   <span>
                     {m.role === "user"
@@ -796,7 +797,7 @@ export function Explore({ data, act, go, search }: any) {
                   <small>{date(m.created_at)}</small>
                 </div>
                 <div className="message-text">
-                  {m.role === "assistant" ? (
+                  {m.role === "assistant" && m.context.adaptation ? null : m.role === "assistant" ? (
                     <Answer text={m.content} sources={m.sources} />
                   ) : (
                     m.content
@@ -827,9 +828,11 @@ export function Explore({ data, act, go, search }: any) {
                 </div>}
                 {m.role === "assistant" && (
                   <>
-                    <ConversationFiles allFiles={allFiles} revise={(f:any)=>{setTarget(f);composer.current?.focus();}} conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>
+                    {m.context.confirmation && <button className="btn secondary" onClick={()=>{const card=document.getElementById("chat-message-"+m.context.confirmation.messageId);const el=card?.querySelector<HTMLElement>('[data-chat-action="'+m.context.confirmation.action+'"]')||card;el?.scrollIntoView({block:"center"});el?.focus({preventScroll:true});}}>{m.context.confirmation.label}</button>}
+                    {m.context.adaptation && <ChatAdaptation cid={current.id} message={m} source={allFiles.get(m.context.adaptation.sourceId)} refresh={()=>reloadConversation(current.id)}/>}
+                    {!m.context.adaptation && !m.context.confirmation && <ConversationFiles derive={(f:any,kind:string)=>{setTarget({...f,deriveKind:kind});setPrompt(kind==="wechat"?"用这份材料写一篇给家长看的公众号文章，用中式古典主题。":"把这份材料做成一分钟配音视频，先让我试听。");composer.current?.focus();}} allFiles={allFiles} revise={(f:any)=>{setTarget(f);composer.current?.focus();}} conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>}
                     <div className="ai-run-summary">
-                      <small>{m.context.model || "DeepSeek"} · {{ disabled: "快速回答", low: "轻量思考", high: "深度思考", max: "最强思考" }[m.context.thinkingMode || "disabled"]} · {m.context.engine === "native" ? "官方联网" : "工作台检索"}</small>
+                      <small>{m.context.adaptation || m.context.confirmation ? (m.context.model||"本地排版") : <>{m.context.model || "DeepSeek"} · {{ disabled: "快速回答", low: "轻量思考", high: "深度思考", max: "最强思考" }[m.context.thinkingMode || "disabled"]} · {m.context.engine === "native" ? "官方联网" : "工作台检索"}</>}</small>
                       {m.context.usage && <details>
                         <summary>查看用量与检索步骤</summary>
                         <p>输入 {m.context.usage.inputTokens ?? "未返回"} / 输出 {m.context.usage.outputTokens ?? "未返回"} token</p>
@@ -880,7 +883,7 @@ export function Explore({ data, act, go, search }: any) {
               {data.user.role==="admin" && <button type="button" className="text-link" onClick={()=>go("settings")}>打开设置</button>}
             </small>}
             <ChatMaterials materials={materials}/>
-            {target && <div className="chat-source-chip">修改：{target.title||target.name} · 第 {target.version||1} 版
+            {target && <div className="chat-source-chip">{target.deriveKind==="wechat"?"公众号文章来源":target.deriveKind==="video"?"视频来源":"修改"}：{target.title||target.name} · 第 {target.version||1} 版
               <button type="button" className="text-link" onClick={()=>setTarget(null)}>取消选择</button></div>}
             <details className="composer-settings"><summary>研究设置 {selected.length>0 && <span>已选 {selected.length} 篇笔记</span>}</summary>
             <div className="composer-options">
@@ -932,7 +935,7 @@ export function Explore({ data, act, go, search }: any) {
             />
             <div className="composer-footer">
               <small>
-                本地命中的共享资料、本人笔记和所选上下文会发送给
+                本轮所用材料与上下文会发送给
                 DeepSeek；联网发送检索词。回答需要核验。
               </small>
               <B type="submit" disabled={!!working || !prompt.trim()}><Send size={16}/>发送</B>

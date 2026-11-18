@@ -1,3 +1,5 @@
+import {runAdaptation} from "./chat-adaptations.js";
+import {runChatFilmTask} from "./chat-film.js";
 import {readChatMaterials,inferRevision,revisionTarget} from "./chat-materials.js";
 import {renderConversationFiles} from "./conversation-files.js";
 import {runWechatDraft,wechatSecrets} from './wechat.js';
@@ -70,7 +72,7 @@ export function jobView(j: any, compact = false) {
       masterId:checkpoint.masterId, versionId:checkpoint.versionId,
       completedStages:[checkpoint.research && 'research',checkpoint.masterId && 'master',checkpoint.versionId && 'content',j.state==='succeeded' && 'export'].filter(Boolean),
     } : undefined,
-    conversationId: ["explore","conversation-export"].includes(j.type) ? parse(j.input).conversationId : undefined,
+    conversationId: ["explore","conversation-export","chat-narration","chat-film"].includes(j.type) ? parse(j.input).conversationId : undefined,
     parentProductionId:j.type === "visual-export" ? parse(j.input).parentProductionId : undefined,
     input: undefined,
     input_hash: undefined,
@@ -662,6 +664,8 @@ export class Worker {
       let result: any;
       if (j.type === "production")
         result = await runProduction(input, j.id, progress, signal);
+      else if (["chat-narration","chat-film"].includes(j.type))result=await runChatFilmTask(j.type,input,j.id,progress,signal,this.exploreTransport);
+      else if(j.type==="explore" && input.chatAdaptation) result=await runAdaptation(input,j.id,progress,signal,this.exploreTransport,enqueue);
       else if (j.type === "conversation-export") result=await runConversationExport(input,j.id,progress,signal);
       else if (j.type === "wechat-draft") result = await runWechatDraft(input,j.id,progress,signal,this.wechatClient,this.wechatSecretOperations);
       else if (j.type === "workflow-plan") result = await runPlan(input,progress,signal);

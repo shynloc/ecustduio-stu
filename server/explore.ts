@@ -1,3 +1,4 @@
+import {AdaptKind,AdaptEdit,queueAdaptation,registerChatAdaptations} from "./chat-adaptations.js";
 import {officePage} from "./chat-preview.js";
 import {freezeAttachments,revisionTarget,inferRevision} from "./chat-materials.js";
 import {extractFilePlan, fileInstructions, fileTool, FileCall, chatFileFormat, renderConversationFiles} from "./conversation-files.js";
@@ -607,6 +608,7 @@ function conversationActivity(id:string){
    .map(j=>({...j,error:parse(j.error,null)}));
 }
 export async function registerExplore(app: any, enqueue: any) {
+  registerChatAdaptations(app,enqueue);
   const text = z.string().trim().min(1),
     entity = z.string().min(1).max(100);
   app.get("/api/conversations", async (req: any) =>
@@ -680,15 +682,13 @@ export async function registerExplore(app: any, enqueue: any) {
     });
   });
   app.post("/api/conversations/:id/messages", async (req: any, reply: any) => {
-    if (!hasSecret("deepseek"))
-      err("CAPABILITY_NOT_CONFIGURED", "请由管理员配置 DeepSeek 凭证", 503);
-    ensureExploreUser(req.user.id);
     const b = z
       .object({
         prompt: text.max(10000),
         mode: z.enum(["auto","local", "web", "both"]).default("both"),
         noteIds: z.array(entity).max(8).default([]),
         attachmentIds:z.array(entity).max(8).optional(),sourceUrls:z.array(z.string().url().max(2500)).max(4).optional(),
+        derive:z.object({kind:AdaptKind,artifactId:entity}).strict().optional(),adaptEdit:AdaptEdit.optional(),
         reviseId:entity.optional(),queueTurn:z.boolean().default(false),
         thinkingMode: z.enum(["default", "disabled", "low", "high", "max"]).default("default"),
         webEngine: z.enum(["default", "native", "controlled"]).default("default"),
@@ -697,6 +697,11 @@ export async function registerExplore(app: any, enqueue: any) {
       .strict()
       .parse(req.body);
     const requestKey = `explore:${req.user.id}:${req.headers["idempotency-key"] || id()}`;
+    const adaptation=queueAdaptation(req.params.id,b,req.user,requestKey,enqueue);
+    if(adaptation)return reply.code(202).send(adaptation);
+    if (!hasSecret("deepseek"))
+      err("CAPABILITY_NOT_CONFIGURED", "请由管理员配置 DeepSeek 凭证", 503);
+    ensureExploreUser(req.user.id);
     const prior = get("SELECT * FROM jobs WHERE idempotency_key=?", requestKey);
     if (prior) {
       const old = parse(prior.input);

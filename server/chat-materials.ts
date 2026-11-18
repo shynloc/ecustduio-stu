@@ -201,7 +201,7 @@ export function revisionTarget(
   checkMediaAsset(a.asset_id, user);
   const original = requireRow(
     get(
-      `SELECT m.content,m.sources FROM messages m,json_each(m.context,'$.artifacts') f
+      `SELECT m.content,m.sources,m.context FROM messages m,json_each(m.context,'$.artifacts') f
     WHERE m.conversation_id=? AND m.role='assistant' AND json_extract(f.value,'$.id')=?`,
       conversationId,
       a.id,
@@ -216,6 +216,7 @@ export function revisionTarget(
   const text =
     draft?.content ||
     answer?.text ||
+    parse(original.context).adaptation?.article ||
     (job.type === "conversation-export" &&
       get(
         "SELECT content FROM messages WHERE id=? AND conversation_id=?",

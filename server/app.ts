@@ -288,7 +288,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
         "SELECT id,date,number,coverage,created_at FROM reports ORDER BY created_at DESC LIMIT 100",
       ),
       artifacts: all(
-        "SELECT a.*,s.name,s.size FROM artifacts a JOIN assets s ON s.id=a.asset_id ORDER BY a.created_at DESC LIMIT 200",
+        "SELECT a.*,s.name,s.size FROM artifacts a JOIN assets s ON s.id=a.asset_id WHERE coalesce(json_extract(a.manifest,'$.internalChatAudio'),0)=0 ORDER BY a.created_at DESC LIMIT 200",
       ).map((v) => ({ ...v, quality: parse(v.quality), manifest: undefined })),
       sources: all("SELECT * FROM sources"),
       skills: all(
@@ -309,7 +309,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
       result.outbox = [];
       result.jobs = result.jobs.filter((j: any) => {
         if (j.type === "backup") return false;
-        if (j.type === "conversation-export") return get("SELECT owner_id FROM conversations WHERE id=?",j.conversationId)?.owner_id===req.user.id;
+        if (["conversation-export","chat-narration","chat-film"].includes(j.type)) return get("SELECT owner_id FROM conversations WHERE id=?",j.conversationId)?.owner_id===req.user.id;
         if (["wechat-draft","workflow-plan","workflow","source-review","policy-impact","visual-video","visual-create","visual-assistant","visual-web-import","visual-export","visual-runtime"].includes(j.type)) return parse(get("SELECT input FROM jobs WHERE id=?",j.id)?.input).actorId === req.user.id;
         if (j.type === "media") return get("SELECT owner_id FROM media_jobs WHERE job_id=?",j.id)?.owner_id === req.user.id;
         if (j.type === "explore")

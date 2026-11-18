@@ -3654,7 +3654,7 @@ function Tasks({ data, act, go }: any) {
                             ocr: "本机OCR识别",
                             media: "文件与语音处理",
                             explore: "AI 研究与创作",
-                            "conversation-export":"对话文件生成",
+                            "conversation-export":"对话文件生成","chat-narration":"逐页配音试听","chat-film":"对话视频渲染",
                             production: "Agent制作任务",
                             monitor: "每日监测",
                             agent: "DeepSeek Agent",

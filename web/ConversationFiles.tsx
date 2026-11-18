@@ -8,6 +8,7 @@ export function ConversationFiles({
   message,
   reload,
   revise,
+  derive,
   allFiles,
 }: any) {
   const [format, setFormat] = useState("docx"),
@@ -68,6 +69,8 @@ export function ConversationFiles({
           >
             修改这份
           </button>
+          <button className="text-link" aria-label={"转公众号文章 "+(f.title||f.name)} onClick={()=>derive(f,"wechat")}>转公众号文章</button>
+          <button className="text-link" aria-label={"做配音视频 "+(f.title||f.name)} onClick={()=>derive(f,"video")}>做配音视频</button>
           <small>第 {f.version || 1} 版</small>
           {f.previousId &&
             allFiles.get(f.previousId) &&

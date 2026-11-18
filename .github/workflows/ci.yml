@@ -60,6 +60,10 @@ jobs:
             test-results/course-delivery/*.pptx
             test-results/course-delivery/*inline.png
             test-results/course-delivery/*.docx
+            test-results/course-delivery/derivatives-evidence.json
+            test-results/course-delivery/family-article.html
+            test-results/course-delivery/paper-bridge.mp4
+            test-results/course-delivery/paper-bridge.srt
             test-results/course-delivery/source.txt
             test-results/course-delivery/fixture-evidence.json
           retention-days: 7

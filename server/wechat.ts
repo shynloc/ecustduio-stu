@@ -1,6 +1,6 @@
 import {articleProfile, wechatThemeIds, type WechatTheme} from "../shared/wechat-themes.js";
 import { z } from "zod";
-import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import { imageSize } from "image-size";
 import * as cheerio from "cheerio";
 import {
@@ -72,7 +72,7 @@ function previewView(p: any) {
     createdAt: p.created_at,
   };
 }
-function draftView(d: any) {
+export function draftView(d: any) {
   const p = get("SELECT body FROM wechat_previews WHERE id=?", d.preview_id),
     a = get(
       "SELECT display_name FROM wechat_accounts WHERE id=?",
@@ -82,6 +82,7 @@ function draftView(d: any) {
   return {
     id: d.id,
     previewId: d.preview_id,
+    mediaId: d.remote_media_id || null,
     accountName: a?.display_name,
     title: parse(p?.body).title,
     state: d.state,
@@ -133,11 +134,13 @@ function autoCover(title: string, palette: WechatTheme, user: any) {
   ctx.fillStyle = "#c7d7b1";
   ctx.fillRect(55, 65, 54, 5);
   ctx.fillStyle = "#ffffff";
-  ctx.font = 'bold 44px "Microsoft YaHei", "PingFang SC", sans-serif';
+  const family = ["Microsoft YaHei", "PingFang SC", "Heiti SC", "Hiragino Sans GB", "Noto Sans CJK SC", "SimSun", "Arial Unicode MS"].find(name => GlobalFonts.has(name));
+  const face = family ? JSON.stringify(family) : "sans-serif";
+  ctx.font = "bold 44px " + face;
   const chars = Array.from(title);
   for (let i = 0; i < 3; i++)
     ctx.fillText(chars.slice(i * 16, (i + 1) * 16).join(""), 55, 145 + i * 64);
-  ctx.font = '18px "Microsoft YaHei", "PingFang SC", sans-serif';
+  ctx.font = "18px " + face;
   ctx.fillStyle = "#d2ded6";
   ctx.fillText("EcuStudio · 教创工作台", 55, 347);
   const a = asset(
@@ -276,6 +279,57 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
   return previewView(get("SELECT * FROM wechat_previews WHERE id=?", pid));
 }
 
+export function enqueueWechatDraft(b:{previewId:string;accountId:string},user:any,enqueue:any){
+    const p = own("wechat_previews", b.previewId, user),
+      a = get("SELECT * FROM wechat_accounts WHERE enabled=1");
+    if (!a || a.id !== b.accountId)
+      err(
+        "WECHAT_CONNECTION_CHANGED",
+        "公众号连接已变化，请刷新页面确认要保存到哪个公众号。",
+        409,
+      );
+    const prior = get(
+      "SELECT * FROM wechat_drafts WHERE preview_id=? AND account_id=?",
+      p.id,
+      a.id,
+    );
+    if (prior) return draftView(own("wechat_drafts", prior.id, user));
+    const other = get(
+      `SELECT d.id FROM wechat_drafts d JOIN wechat_previews p ON p.id=d.preview_id JOIN jobs j ON j.id=d.job_id
+      WHERE p.note_id=? AND d.account_id=? AND d.preview_id<>? AND (j.state IN ('queued','running') OR d.state IN ('submitting','unknown','verifying')) LIMIT 1`,
+      p.note_id,
+      b.accountId,
+      b.previewId,
+    );
+    if (other)
+      err(
+        "RECONCILE_FIRST",
+        "同篇文章有另一版正在保存或回执待核对。请先核对那一版的草稿记录。",
+        409,
+      );
+    if (owned("notes", p.note_id, user).revision !== p.revision)
+      err("VERSION_CONFLICT", "笔记已更新，请重新预览后保存。", 409);
+    const did = id();
+    tx(() => {
+      run(
+        "INSERT INTO wechat_drafts(id,owner_id,preview_id,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+        did,
+        user.id,
+        p.id,
+        a.id,
+        now(),
+        now(),
+      );
+      const j = enqueue(
+        "wechat-draft",
+        { draftId: did, actorId: user.id },
+        "wechat:" + did,
+      );
+      run("UPDATE wechat_drafts SET job_id=? WHERE id=?", j.id, did);
+    });
+    return draftView(get("SELECT * FROM wechat_drafts WHERE id=?", did));
+}
+
 export async function registerWechatDrafts(
   app: any,
   enqueue: any,
@@ -381,46 +435,9 @@ export async function registerWechatDrafts(
   app.get("/api/wechat/drafts/:id", async (req: any) =>
     draftView(own("wechat_drafts", req.params.id, req.user)),
   );
-  app.post("/api/wechat/drafts", async (req: any) => {
-    const b = z
-        .object({ previewId: z.string(), accountId: z.string() })
-        .strict()
-        .parse(req.body),
-      p = own("wechat_previews", b.previewId, req.user),
-      a = get("SELECT * FROM wechat_accounts WHERE enabled=1");
-    if (!a || a.id !== b.accountId)
-      err(
-        "WECHAT_CONNECTION_CHANGED",
-        "公众号连接已变化，请刷新页面确认要保存到哪个公众号。",
-        409,
-      );
-    const prior = get(
-      "SELECT * FROM wechat_drafts WHERE preview_id=? AND account_id=?",
-      p.id,
-      a.id,
-    );
-    if (prior) return draftView(own("wechat_drafts", prior.id, req.user));
-    if (owned("notes", p.note_id, req.user).revision !== p.revision)
-      err("VERSION_CONFLICT", "笔记已更新，请重新预览后保存。", 409);
-    const did = id();
-    tx(() => {
-      run(
-        "INSERT INTO wechat_drafts(id,owner_id,preview_id,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-        did,
-        req.user.id,
-        p.id,
-        a.id,
-        now(),
-        now(),
-      );
-      const j = enqueue(
-        "wechat-draft",
-        { draftId: did, actorId: req.user.id },
-        "wechat:" + did,
-      );
-      run("UPDATE wechat_drafts SET job_id=? WHERE id=?", j.id, did);
-    });
-    return draftView(get("SELECT * FROM wechat_drafts WHERE id=?", did));
+  app.post("/api/wechat/drafts", async(req:any)=>{
+    const b=z.object({previewId:z.string(),accountId:z.string()}).strict().parse(req.body);
+    return enqueueWechatDraft(b,req.user,enqueue);
   });
   app.post("/api/wechat/drafts/:id/retry", async (req: any) => {
     const b = z
