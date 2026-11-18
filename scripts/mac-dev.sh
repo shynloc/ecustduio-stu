@@ -44,4 +44,5 @@ if [ ! -f node_modules/tsx/dist/cli.mjs ] || [ ! -f .dev/dependencies-key ] || [
   printf '%s' "$ECU_ENV_KEY" > .dev/dependencies-key
 fi
 npm run dev:setup
+if [ "${1:-}" = --setup-only ]; then exit 0; fi
 exec npm run dev
