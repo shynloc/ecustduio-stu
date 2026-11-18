@@ -183,7 +183,7 @@ export function ArtifactLibrary({ go }: { go: (route: string) => void }) {
                 <a href={"/api/artifacts/" + a.id + "/download"}>
                   下载 {a.format.toUpperCase()}
                 </a>
-                {a.manifest?.conversationId && <button className="text-link" onClick={()=>go("explore/"+a.manifest!.conversationId)}>打开来源对话</button>}
+                {a.manifest?.conversationId && <button className="text-link" onClick={()=>go("explore/"+a.manifest!.conversationId+"?file="+encodeURIComponent(a.id))}>打开来源对话</button>}
                 {a.manifest?.visualId && (
                   <button
                     className="text-link"

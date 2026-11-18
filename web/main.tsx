@@ -597,7 +597,7 @@ function App({ onLogout }: any) {
             ) : (
               <Snapshot {...common} id={itemId} />
             ))}
-          {page === "explore" && <Explore {...common} />}
+          {page === "explore" && <Explore key={route} {...common} />}
           {page === "steward" && <WorkflowStudio key={itemId||'new'} {...common} id={itemId}/>}
           {page === "impacts" && <PolicyImpacts {...common} id={itemId}/>}
           {page === "visual" && <VisualStudio key={itemId} {...common} id={itemId}/>}

@@ -36,6 +36,11 @@ jobs:
       - run: npm run build
       - run: npm run test:core
       - run: npm run test:dev
+      - name: Install Office pagination runtime on Apple Silicon
+        if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        run: |
+          if [ ! -x /Applications/LibreOffice.app/Contents/MacOS/soffice ]; then brew install --cask libreoffice; fi
+          echo "ECUSTUDIO_REQUIRE_OFFICE_PREVIEW=1" >> "$GITHUB_ENV"
       - run: npm run test:ui
       - name: Mac bootstrap syntax
         if: runner.os == 'macOS'
@@ -53,6 +58,7 @@ jobs:
             test-results/pipeline-ui/
             test-results/wechat-ui/
             test-results/course-delivery/*.pptx
+            test-results/course-delivery/*inline.png
             test-results/course-delivery/*.docx
             test-results/course-delivery/source.txt
             test-results/course-delivery/fixture-evidence.json

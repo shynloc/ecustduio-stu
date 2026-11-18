@@ -193,8 +193,16 @@ export async function exportFile(
     return tx(() => {
       const a = asset(buffer, name, mime[input.format], "artifact"),
         artifactId = id();
-      if (input.targetType === "conversation")
-        grantMediaAsset(a.id, input.payload.ownerId);
+      const isChat=input.targetType==="conversation";
+      const familyId=input.payload.familyId||artifactId;
+      let version=input.payload.version||1;
+      if (isChat){
+        grantMediaAsset(a.id,input.payload.ownerId);
+        if(input.payload.previousId){
+          const newest=get("SELECT max(CAST(json_extract(manifest,'$.version') AS INTEGER)) AS n FROM artifacts WHERE target_id=? AND json_extract(manifest,'$.familyId')=?",input.targetId,familyId);
+          version=Math.max(version,(newest?.n||0)+1);
+        }
+      }
       run(
         "INSERT INTO artifacts VALUES(?,?,?,?,?,?,?,?,?)",
         artifactId,
@@ -205,6 +213,7 @@ export async function exportFile(
         json(
           input.targetType === "conversation"
             ? {
+                title:input.payload.title,version,familyId,previousId:input.payload.previousId,
                 ownerId: input.payload.ownerId,
                 conversationId: input.payload.conversationId,
                 sources: input.payload.sources,

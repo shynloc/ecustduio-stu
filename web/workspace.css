@@ -862,3 +862,15 @@ nav.section-links a { padding:.45rem .8rem; }
 .chat-file span { overflow-wrap:anywhere; }
 .chat-file svg { flex-shrink:0; }
 .composer-settings { margin-bottom:.55rem; }
+.chat-materials,.turn-status { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem .7rem; }
+.turn-status { margin:.5rem 0; font-size:.86rem; }
+.turn-status [role=status] { flex-basis:100%; }
+.chat-source-chip {display:inline-flex;align-items:center;gap:.35rem;background:var(--warm);padding:.15rem .55rem;border-radius:6px;overflow-wrap:anywhere;}
+.office-pages { border:1px solid var(--border); border-radius:8px; padding:.7rem; display:grid; gap:.5rem; min-width:0; }
+.office-pages img {display:block;max-width:100%;height:auto;max-height:75vh;object-fit:contain;justify-self:start;}
+.office-viewer { border:1px solid var(--border); border-radius:12px; color:inherit; background:var(--paper); padding:0; max-width:96vw; width: min(930px,96vw); max-height:95vh; }
+.office-viewer::backdrop {background:rgba(18,30,28,.55);}
+.office-pages {border:0;}
+.office-canvas {overflow:auto;max-height:70vh;background:var(--warm);}
+.office-canvas img {margin:auto;max-width:100%;max-height:69vh;}
+.office-canvas.zoom img {max-width:none;max-height:none;width:auto;}

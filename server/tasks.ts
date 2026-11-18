@@ -1,3 +1,4 @@
+import {readChatMaterials,inferRevision,revisionTarget} from "./chat-materials.js";
 import {renderConversationFiles} from "./conversation-files.js";
 import {runWechatDraft,wechatSecrets} from './wechat.js';
 import {officialWechat} from './wechat-client.js';
@@ -609,7 +610,11 @@ export class Worker {
     );
     const j = tx(() => {
       const row = get(
-        "SELECT * FROM jobs WHERE state='queued' ORDER BY created_at LIMIT 1",
+        `SELECT j.* FROM jobs j WHERE j.state='queued' AND (j.type<>'explore' OR NOT EXISTS (
+          SELECT 1 FROM messages m JOIN messages u ON u.conversation_id=m.conversation_id AND u.role='user'
+          JOIN jobs other ON other.id=u.job_id WHERE m.job_id=j.id AND m.role='user' AND other.id<>j.id
+          AND (other.state='running' OR (other.state='queued' AND u.rowid<m.rowid))
+        )) ORDER BY j.created_at,j.rowid LIMIT 1`,
       );
       if (!row) return null;
       run(
@@ -681,13 +686,34 @@ export class Worker {
           input.force,
         );
       else if (j.type === "explore") {
-        let response = parse(j.checkpoint).exploreResult;
+        const saved=parse(j.checkpoint);
+        if(!input.target && saved.revisionTarget)input.target=saved.revisionTarget;
+        if(input.deferRevision && !input.target){
+          const target=inferRevision(input.conversationId,input.prompt,j.id);
+          if(target){
+            input.target=revisionTarget(input.conversationId,target,ensureExploreUser(input.userId));
+            tx(()=>{
+              run("UPDATE jobs SET checkpoint=? WHERE id=? AND fence=?",json({...saved,revisionTarget:input.target}),j.id,j.fence);
+              run("UPDATE messages SET context=json_set(context,'$.reviseId',?,'$.targetTitle',?) WHERE job_id=? AND role='user'",target,input.target.title,j.id);
+            });
+          }
+        }
+        let response = saved.exploreResult;
         if (!response) {
+          input.materialSources=await readChatMaterials(input,j.id,signal,progress,this.exploreTransport);
+          if(input.queueTurn){
+            // Read earlier turns by their user message, even if two requests were queued before either answer existed.
+            input.history=all(`SELECT m.role,m.content,m.sources,m.context FROM messages m
+              JOIN messages u ON u.job_id=m.job_id AND u.role='user'
+              WHERE m.conversation_id=? AND u.rowid < (SELECT rowid FROM messages WHERE job_id=? AND role='user')
+              ORDER BY u.rowid DESC,m.rowid DESC LIMIT 10`,input.conversationId,j.id).reverse()
+              .map(m=>({...m,sources:parse(m.sources,[]),context:parse(m.context)}));
+          }
           response = await runExplore(input, progress, signal,this.exploreTransport);
           progress("prepare",{message:"本轮内容已整理"});
           run(
             "UPDATE jobs SET checkpoint=? WHERE id=? AND fence=?",
-            json({ exploreResult: response }),
+            json({ ...parse(get("SELECT checkpoint FROM jobs WHERE id=?",j.id).checkpoint), exploreResult: response }),
             j.id,j.fence,
           );
         }

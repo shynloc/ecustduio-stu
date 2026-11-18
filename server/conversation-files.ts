@@ -42,7 +42,7 @@ export const fileTool = {
   },
 };
 export const fileInstructions =
-  '用户索要文件、演示稿、讲义、网页或要求修改前一版时，直接创作可用成稿并交付，不要指导用户自行制作。可用 deliver_files 时优先调用；否则写出完整正文，末尾独占一行附 :::ecustudio-files {"title":"文件标题","formats":["pptx"]}。支持 docx、pptx、pdf、md、html。每页演示用 ## 标题另起一节。教师材料给出分步教学、时间安排和评价要点；学生材料用学生能执行的指令和可填写的记录表，不代填实验结论。每份使用课程材料的文件各自引用真实编号。只改指定文件时只交付该文件的新稿。无本地工具而需交付不同正文时，每份正文后各写一行对应的 :::ecustudio-files 说明。普通提问直接回答。文件由工作台在本对话生成，引用仍用本轮真实来源编号。';
+  '用户索要文件、演示稿、讲义、网页或要求修改前一版时，直接创作可用成稿并交付，不要指导用户自行制作。可用 deliver_files 时优先调用；否则写出完整正文，末尾独占一行附 :::ecustudio-files {"title":"文件标题","formats":["pptx"]}。支持 docx、pptx、pdf、md、html。每页演示用 ## 标题另起一节。教师材料给出分步教学、时间安排和评价要点；学生材料用学生能执行的指令和可填写的记录表，不代填实验结论。每份使用课程材料的文件各自引用真实编号。revisionTarget 含要修订的原稿；仅修订指定附件，保留受众、题名和原格式，单独交付新版本。无本地工具而需交付不同正文时，每份正文后各写一行对应的 :::ecustudio-files 说明。普通提问直接回答。文件由工作台在本对话生成，引用仍用本轮真实来源编号。';
 
 export function extractFilePlan(text: string) {
   const lines = text.trimEnd().split("\n");
@@ -106,6 +106,7 @@ export async function renderConversationFiles(
   const files = [];
   for (const [index, value] of drafts.entries()) {
     const draft = FileCall.parse(value);
+    if(input.target)draft.title=input.target.title;
     const fileJob = index ? jobId + ":draft:" + index : jobId;
     files.push(
       ...(await renderDraft(
@@ -199,6 +200,7 @@ async function renderDraft(
     versionId: jobId,
     generatedAt: now(),
     ownerId: conversation.owner_id,
+    version:(input.target?.version||0)+1,previousId:input.target?.id,familyId:input.target?.familyId,
     conversationId: input.conversationId,
     chatMarkdown: draft.content,
     blocks,
@@ -210,6 +212,7 @@ async function renderDraft(
         "] " +
         s.title +
         (s.kind === "note" && s.revision ? " · 笔记 v" + s.revision : ""),
+      ...(s.assetId ? {assetId:s.assetId,sourceHash:s.sourceHash} : {}),
       ...(s.noteId ? { noteId: s.noteId, revision: s.revision } : {}),
       ...(s.snapshotId ? { snapshotId: s.snapshotId } : {}),
       url: s.url,
@@ -242,7 +245,7 @@ async function renderDraft(
         });
       },
     );
-    files.push({ id: file.id, name: file.name, format });
+    files.push({ id: file.id, name: file.name, title:plan.title,format,version:JSON.parse(file.manifest).version||1,previousId:payload.previousId });
   }
   return files;
 }

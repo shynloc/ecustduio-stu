@@ -1,3 +1,5 @@
+import {useChatMaterials,ChatMaterials} from "./ChatMaterials";
+import {uid} from "./compat";
 import { ConversationFiles } from "./ConversationFiles";
 import {carry,readContext} from './context';
 import {EditorIconButton} from './EditorIconButton';
@@ -519,7 +521,7 @@ export function Sources({ sources, go }: any) {
             <p className="muted">
               {s.kind === "web"
                 ? "联网来源"
-                : s.kind === "note"
+                : s.kind === "attachment" ? (s.method||"对话材料") : s.kind === "note"
                   ? "创作笔记"
                   : s.kind === "media" ? "文件与语音处理 · 待核实" : "本地资料"}
               {s.published ? " · " + String(s.published).slice(0, 10) : ""}
@@ -533,6 +535,7 @@ export function Sources({ sources, go }: any) {
             )}
             <div className="button-row">
               {s.mediaJobId && <button className="text-link" onClick={() => go("media/" + s.mediaJobId)}>查看处理记录</button>}
+              {s.kind==="attachment" && s.assetId && <a href={"/api/assets/"+s.assetId} download>下载原件</a>}
               {s.url && (
                 <a href={s.url} target="_blank" rel="noreferrer">
                   <ExternalLink size={13} />
@@ -572,12 +575,14 @@ export function Explore({ data, act, go, search }: any) {
     [webEngine, setWebEngine] = useState("default"),
     [webAction, setWebAction] = useState("search"),
     [selected, setSelected] = useState<string[]>([]),
-    [job, setJob] = useState<any>(null),
     [error, setError] = useState(""),
-    [sending, setSending] = useState(false),
-    [stage, setStage] = useState("");
-  const mounted = useRef(true),
-    end = useRef<HTMLDivElement>(null);
+    [sending, setSending] = useState(false);
+  const materials=useChatMaterials();
+  const [target,setTarget]=useState<any>(null);
+  const composer=useRef<HTMLTextAreaElement>(null);
+  const request=useRef({key:"",signature:""});
+  const allFiles=new Map<string,any>((current?.messages||[]).flatMap((m:any)=>(m.context.artifacts||[]).map((f:any)=>[f.id,f])));
+  const end = useRef<HTMLDivElement>(null);
   const threadId = location.hash.split("?")[0].split("/")[1] || "";
   async function lists() {
     const [c, n] = await Promise.all([api("/conversations"), api("/notes")]);
@@ -586,15 +591,11 @@ export function Explore({ data, act, go, search }: any) {
     return n;
   }
   useEffect(() => {
-    mounted.current = true;
-    lists()
-      .then((n) => {
-        readContext().then(c=>{if(c)setSelected(c.items.filter((i:any)=>i.ref.kind==='note').map((i:any)=>i.ref.id));}).catch(e=>setError(e.message));
-      })
-      .catch((e) => setError(e.message));
-    return () => {
-      mounted.current = false;
-    };
+    let live=true;
+    Promise.all([lists(),readContext()]).then(([,context])=>{
+      if(live && context)setSelected(context.items.filter((i:any)=>i.ref.kind==="note").map((i:any)=>i.ref.id));
+    }).catch(e=>live&&setError(e.message));
+    return ()=>{live=false;};
   }, []);
   const routeMatches = (id:string) => location.hash.split("?")[0] === "#explore/"+id;
   async function reloadConversation(id:string, restoreSelection=false) {
@@ -603,38 +604,44 @@ export function Explore({ data, act, go, search }: any) {
     setCurrent(c);
     if(restoreSelection){
       const prior=c.messages.filter((m:any)=>m.role==="user").at(-1)?.context;
+      materials.restore(prior?.attachments,prior?.sourceUrls);
       setSelected(prior?.notes?.map((n:any)=>n.id)||[]);
       setMode(prior?.mode||"auto");setThinkingMode(prior?.requestedThinkingMode||"default");
       setWebEngine(prior?.webEngine||"default");setWebAction(prior?.webAction||"search");
     }
-    setJob(c.jobs.find((j:any)=>["queued","running"].includes(j.state)) || null);
+
   }
   useEffect(()=>{
-    setCurrent(null);setJob(null);setStage("");setError("");
     if(threadId)reloadConversation(threadId,true).catch(e=>routeMatches(threadId)&&setError(e.message));
   },[threadId]);
   const pendingFiles=current?.messages?.some((m:any)=>m.context.fileJobs?.some((j:any)=>["queued","running"].includes(j.state)));
+  const activeIds=(current?.jobs||[]).filter((j:any)=>["queued","running"].includes(j.state)).map((j:any)=>j.id).join(",");
   useEffect(()=>{
-    if(!threadId||(!job&&!pendingFiles))return;
-    let active=true;
+    if(!threadId || (!activeIds&&!pendingFiles))return;
+    let live=true,timer:ReturnType<typeof setTimeout>;
     async function poll(){
       try{
-        if(job){
-          const j=await api("/jobs/"+job.id);
-          if(!active||!routeMatches(threadId))return;
-          setStage(j.events?.at(-1)?.payload?.message || "正在处理…");
-          if(["queued","running"].includes(j.state)&&!pendingFiles)return;
+        if(pendingFiles) await reloadConversation(threadId);
+        else {
+          const jobs=await api("/conversations/"+threadId+"/activity");
+          if(!live || !routeMatches(threadId))return;
+          if(jobs.some((j:any)=>activeIds.split(",").includes(j.id) && !["queued","running"].includes(j.state))) await reloadConversation(threadId);
+          else setCurrent((c:any)=>c?.id===threadId?{...c,jobs}:c);
         }
-        if(active)await reloadConversation(threadId);
-      }catch(e:any){if(active)setError(e.message);}
+      }catch(e:any){if(live)setError(e.message);}
+      if(live)timer=setTimeout(poll,1000);
     }
-    const timer=setInterval(poll,1200);
-    return ()=>{active=false;clearInterval(timer);};
-  },[threadId,job?.id,pendingFiles]);
-  useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [current?.messages?.length, job?.state]);
-  const working = sending || !!(threadId && current?.id !== threadId) || (job && ["queued", "running"].includes(job.state));
+    timer=setTimeout(poll,600);
+    return ()=>{live=false;clearTimeout(timer);};
+  },[threadId,activeIds,pendingFiles]);
+  useEffect(()=>{
+    const requested=new URLSearchParams(location.hash.split("?")[1]).get("file");
+    if(requested){
+      const card=document.getElementById("chat-file-"+requested);
+      card?.focus({preventScroll:true});card?.scrollIntoView({block:"center"});
+    }else end.current?.scrollIntoView({behavior:"smooth",block:"nearest"});
+  },[current?.id,current?.messages?.length]);
+  const working = sending || !!(threadId && current?.id !== threadId) || materials.pending;
   async function send(e: any) {
     e.preventDefault();
     if (!prompt.trim() || working || (threadId && current?.id !== threadId)) return;
@@ -647,18 +654,16 @@ export function Explore({ data, act, go, search }: any) {
         c = await post("/conversations");
         if(location.hash===origin)setCurrent({ ...c, messages: [], jobs: [] });
       }
-      const j = await post("/conversations/" + c.id + "/messages", {
-        prompt,
-        mode,
-        thinkingMode,
-        webEngine,
-        webAction,
-        noteIds: selected,
-      });
+      const payload={prompt,mode,thinkingMode,webEngine,webAction,noteIds:selected,queueTurn:true,
+        attachmentIds:materials.items.flatMap(i=>i.id?[i.id]:[]),sourceUrls:materials.items.flatMap(i=>i.url?[i.url]:[]),
+        ...(target?{reviseId:target.id}:{})};
+      const signature=JSON.stringify([c.id,payload]);
+      if(request.current.signature!==signature)request.current={signature,key:uid()};
+      await post("/conversations/"+c.id+"/messages",payload,request.current.key);
+      request.current.signature="";
       if(location.hash!==origin)return;
-      setPrompt("");
-      setJob(j);
-      setStage("任务已排队");
+      setPrompt("");setTarget(null);
+
       if (threadId !== c.id) go("explore/" + c.id);
       await reloadConversation(c.id);
       await lists();
@@ -675,14 +680,13 @@ export function Explore({ data, act, go, search }: any) {
         title="AI 创作对话"
         description="直接提问、写稿，或说出你要的文件。生成的文档和演示会附在回答下方。"
       >
-        <B secondary onClick={() => go("media")}>文件 / 图片 / 录音</B>
+
         <B
           secondary
           onClick={() => {
             go("explore");
             setCurrent(null);
-            setSelected([]);
-            setJob(null);
+            setSelected([]);materials.restore();setTarget(null);setPrompt("");
             setError("");
           }}
         >
@@ -749,7 +753,8 @@ export function Explore({ data, act, go, search }: any) {
             )}
           </div>
         </aside>
-        <section className="panel conversation-panel">
+        <section className="panel conversation-panel" onDragOver={e=>{if(e.dataTransfer.types.includes("Files"))e.preventDefault();}}
+          onDrop={e=>{if(e.dataTransfer.files.length){e.preventDefault();materials.add(Array.from(e.dataTransfer.files));}}}>
           <div className="conversation-heading">
             <BrainCircuit size={22} />
             <div>
@@ -805,9 +810,24 @@ export function Explore({ data, act, go, search }: any) {
                       .join("、")}
                   </p>
                 )}
+                {m.role==="user" && <div className="turn-status">
+                  {m.context.attachments?.map((a:any)=><a key={a.id} href={"/api/assets/"+a.id} download>{a.name}</a>)}
+                  {m.context.sourceUrls?.map((url:string)=><span key={url}>{url}</span>)}
+                  {m.context.targetTitle && <small>修订：{m.context.targetTitle}</small>}
+                  {current.jobs.filter((j:any)=>j.id===m.job_id).map((j:any)=><div key={j.id} role="status">
+                    {({queued:"排队中",running:j.progress||"正在处理",succeeded:"已完成",failed:"未完成",interrupted:"任务中断",canceled:"已取消"} as any)[j.state]}
+                    {j.error?.message && <span> · {j.error.message}</span>}
+                    {["failed","interrupted","partial"].includes(j.state)&&<B secondary disabled={sending} onClick={async()=>{
+                      try{await post("/jobs/"+j.id+"/retry");await reloadConversation(current.id);}catch(e:any){setError(e.message);}
+                    }}>重试该轮</B>}
+                    {["queued","running"].includes(j.state)&&<button className="text-link" onClick={async()=>{
+                      try{await post("/jobs/"+j.id+"/cancel");await reloadConversation(current.id);}catch(e:any){setError(e.message);}
+                    }}>停止此任务</button>}
+                  </div>)}
+                </div>}
                 {m.role === "assistant" && (
                   <>
-                    <ConversationFiles conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>
+                    <ConversationFiles allFiles={allFiles} revise={(f:any)=>{setTarget(f);composer.current?.focus();}} conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>
                     <div className="ai-run-summary">
                       <small>{m.context.model || "DeepSeek"} · {{ disabled: "快速回答", low: "轻量思考", high: "深度思考", max: "最强思考" }[m.context.thinkingMode || "disabled"]} · {m.context.engine === "native" ? "官方联网" : "工作台检索"}</small>
                       {m.context.usage && <details>
@@ -848,45 +868,20 @@ export function Explore({ data, act, go, search }: any) {
                 )}
               </article>
             ))}
-            {working && (
-              <div className="explore-progress" role="status">
-                <LoaderCircle className="spin" size={17} />
-                {stage || "任务已排队"}
-              </div>
-            )}
             {error && (
               <p className="notice warning" role="alert">
                 {error}
               </p>
             )}
-            {current?.jobs
-              ?.filter((j: any) => ["failed", "interrupted"].includes(j.state))
-              .slice(0, 1)
-              .map((j: any) => (
-                <div className="button-row" key={j.id}>
-                  <span className="muted">
-                    {j.error?.message || "任务中断"}
-                  </span>
-                  <B
-                    secondary
-                    onClick={async () => {
-                      const r = await act(
-                        () => post("/jobs/" + j.id + "/retry"),
-                        "重试已排队",
-                      );
-                      if (r) setJob(r);
-                    }}
-                  >
-                    重试该轮
-                  </B>
-                </div>
-              ))}
             <div ref={end} />
           </div>
           <form className="explore-composer" onSubmit={send}>
             {(!data.settings.allowExternalAI || data.capabilities.deepseek!=="configured") && <small className="notice">新一轮 AI 创作需要连接并启用 DeepSeek。已有回答可直接导出。
               {data.user.role==="admin" && <button type="button" className="text-link" onClick={()=>go("settings")}>打开设置</button>}
             </small>}
+            <ChatMaterials materials={materials}/>
+            {target && <div className="chat-source-chip">修改：{target.title||target.name} · 第 {target.version||1} 版
+              <button type="button" className="text-link" onClick={()=>setTarget(null)}>取消选择</button></div>}
             <details className="composer-settings"><summary>研究设置 {selected.length>0 && <span>已选 {selected.length} 篇笔记</span>}</summary>
             <div className="composer-options">
               <label>
@@ -918,6 +913,9 @@ export function Explore({ data, act, go, search }: any) {
             </div>
             </details>
             <textarea
+              ref={composer}
+              onPaste={e=>{const value=e.clipboardData.getData("text/plain").trim();
+                if(/^https?:\/\/\S+$/i.test(value)){e.preventDefault();materials.addUrl(value);}}}
               aria-label="对话指令"
               placeholder={webAction === "read" && mode !== "local" ? "粘贴公开网页链接，并说明要总结、对比或提取的内容…" : "提问，或直接说「把刚才的内容做成 PPT」…"}
               rows={3}
@@ -937,27 +935,7 @@ export function Explore({ data, act, go, search }: any) {
                 本地命中的共享资料、本人笔记和所选上下文会发送给
                 DeepSeek；联网发送检索词。回答需要核验。
               </small>
-              {working ? (
-                <B
-                  secondary
-                  type="button"
-                  disabled={!job}
-                  onClick={async () => {
-                    const r = await act(
-                      () => post("/jobs/" + job.id + "/cancel"),
-                      "已请求取消",
-                    );
-                    if (r) setJob(r);
-                  }}
-                >
-                  停止
-                </B>
-              ) : (
-                <B type="submit" disabled={!prompt.trim()}>
-                  <Send size={16} />
-                  发送
-                </B>
-              )}
+              <B type="submit" disabled={!!working || !prompt.trim()}><Send size={16}/>发送</B>
             </div>
           </form>
         </section>

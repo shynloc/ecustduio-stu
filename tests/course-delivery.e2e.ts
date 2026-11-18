@@ -1,10 +1,13 @@
-// Exercise the public conversation and download routes with one selected course note.
+// Exercise the public conversation and download routes with a dropped course file.
 // Only the model transport is substituted. Workers, auth, storage and Office exports are real.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { load } from "cheerio";
+import { Document, Packer, Paragraph } from "docx";
+import { execFileSync } from "node:child_process";
+
 import AdmZip from "adm-zip";
 import { expect } from "playwright/test";
 import { setupBrowser } from "./auth-helper.js";
@@ -60,7 +63,26 @@ D.run(
 const app = await buildApp(false),
   base = await app.listen({ host: "127.0.0.1", port: 0 }),
   browser = await testBrowser();
-let turns = 0;
+let turns = 0,
+  attempts = 0;
+let release!: () => void;
+const hold = new Promise<void>((r) => {
+  release = r;
+});
+const fileName = material.title + ".docx";
+const { officeBinary } = await import("../server/chat-preview.js");
+let hasOffice = true;
+try {
+  execFileSync(officeBinary(), ["--version"], {
+    stdio: "ignore",
+    timeout: 30000,
+  });
+} catch {
+  hasOffice = false;
+}
+if (process.env.ECUSTUDIO_REQUIRE_OFFICE_PREVIEW === "1")
+  assert.ok(hasOffice, "CI requires LibreOffice");
+
 const worker = new Worker(undefined, undefined, async (_url, opts) => {
   const b = JSON.parse(String(opts?.body));
   assert.ok(b.tools.some((t: any) => t.function?.name === "deliver_files"));
@@ -69,13 +91,24 @@ const worker = new Worker(undefined, undefined, async (_url, opts) => {
     turn.retrievedSources.some(
       (s: any) =>
         s.id === "S1" &&
-        s.title === material.title &&
-        s.excerpt === material.body,
+        s.title === fileName &&
+        s.kind === "attachment" &&
+        s.excerpt.trim() === material.body,
     ),
   );
+  attempts++;
+  if (attempts === 1) {
+    await hold;
+    return Response.json(
+      { error: { message: "fixture unavailable" } },
+      { status: 503 },
+    );
+  }
   turns++;
   if (turns === 2) {
     assert.match(turn.request, /只改学生/);
+    assert.equal(turn.revisionTarget.content, sheet.content);
+    assert.equal(turn.revisionTarget.format, "docx");
     assert.ok(
       b.messages.some(
         (m: any) =>
@@ -106,17 +139,32 @@ const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 try {
   const page = await browser.newPage();
   await setupBrowser(page, base);
-  const { csrf } = await (await page.request.get(base + "/api/session")).json();
-  const r = await page.request.post(base + "/api/notes", {
-    headers: { "x-csrf-token": csrf },
-    data: material,
-  });
-  assert.ok(r.ok());
   await page.goto(base + "/#explore");
+  const course = await Packer.toBuffer(
+    new Document({ sections: [{ children: [new Paragraph(material.body)] }] }),
+  );
+  await expect(page.getByRole("button", { name: "添加材料" })).toBeVisible();
+  writeFileSync(join(out, "course.docx"), course);
+  const visited: string[] = [];
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) visited.push(frame.url());
+  });
+  const transfer = await page.evaluateHandle(
+    ({ bytes, name }) => {
+      const dt = new DataTransfer();
+      dt.items.add(
+        new File([new Uint8Array(bytes)], name, {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      );
+      return dt;
+    },
+    { bytes: Array.from(course), name: fileName },
+  );
   await page
-    .getByRole("checkbox", { name: new RegExp(material.title.split("（")[0]) })
-    .check();
-  // Use automatic retrieval with the selected note; this fixture never contacts a provider.
+    .locator(".conversation-panel")
+    .dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(page.locator(".chat-source-chip")).toContainText("本轮使用");
   async function ask(request: string) {
     await page.getByLabel("对话指令").fill(request);
     await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -128,6 +176,33 @@ try {
           ).n,
       )
       .toBe(1);
+    const userTurn = page.locator("article.chat-message.user").last();
+    await expect(userTurn.getByRole("status")).toContainText("排队中");
+    if (!turns) {
+      const attempt = worker.tick();
+      await expect(userTurn.getByRole("status")).toContainText(
+        "DeepSeek 正在整理",
+        { timeout: 20000 },
+      );
+      await expect(page.getByLabel("对话指令")).toBeEnabled();
+      await page.getByLabel("对话指令").fill("可以在等待时起草下一轮");
+      await expect(
+        page.getByRole("button", { name: "发送", exact: true }),
+      ).toBeEnabled();
+      await page.getByLabel("对话指令").fill("");
+      release();
+      await attempt;
+      await expect(
+        userTurn.getByRole("button", { name: "重试该轮" }),
+      ).toBeVisible();
+      const originalJob = D.get("SELECT id FROM jobs WHERE type='explore'").id;
+      await page.reload();
+      await userTurn.getByRole("button", { name: "重试该轮" }).click();
+      assert.equal(
+        D.get("SELECT id FROM jobs WHERE type='explore' AND state='queued'").id,
+        originalJob,
+      );
+    }
     await worker.tick();
     const row = D.get(
       "SELECT state,error FROM jobs WHERE type='explore' ORDER BY rowid DESC LIMIT 1",
@@ -151,15 +226,88 @@ try {
   const originalUrl = page.url(),
     ppt = await download(0, "pptx"),
     v1 = await download(0, "docx");
+  const preview = page.getByRole("region", { name: "附件分页预览" });
+  async function checkPreview(
+    button: any,
+    count: number,
+    version: number,
+    shot?: string,
+  ) {
+    await button.click();
+    await expect(preview).toContainText("第 " + version + " 版");
+    if (hasOffice) {
+      await expect(preview.getByRole("img")).toBeVisible({ timeout: 110000 });
+      await expect(preview).toContainText("第 1 / " + count + " 页");
+      for (let n = 1; n <= count; n++) {
+        if (n > 1)
+          await preview.getByRole("button", { name: "下一页" }).click();
+        const img = preview.getByRole("img", {
+          name: new RegExp("第 " + n + " 页$"),
+        });
+        await expect(img).toBeVisible({ timeout: 30000 });
+        await expect
+          .poll(() =>
+            img.evaluate(
+              (el: HTMLImageElement) => el.complete && el.naturalWidth > 500,
+            ),
+          )
+          .toBe(true);
+        if (shot && n === Math.min(count, 2))
+          await preview.screenshot({ path: join(out, shot) });
+      }
+    } else
+      await expect(preview.getByRole("alert")).toContainText("LibreOffice");
+    await preview.getByRole("button", { name: "关闭预览" }).click();
+    await expect(page).toHaveURL(originalUrl);
+  }
+  await checkPreview(
+    messages.first().getByRole("button", { name: "预览 PPTX" }),
+    6,
+    1,
+    "slides-inline.png",
+  );
+  await checkPreview(
+    messages.first().getByRole("button", { name: "预览 DOCX" }),
+    1,
+    1,
+  );
+  await messages
+    .first()
+    .getByRole("button", { name: "修改这份 " + sheetTitle, exact: true })
+    .click();
   await ask(
     "只改学生活动单，保留原文件名、实验步骤和记录表。最后一题改成分步填写数据并解释。不要重新生成教师 PPT。",
   );
   await expect(links(1)).toHaveCount(1);
   const v2 = await download(1, "docx");
-  await page.goto(base + "/#results");
-  await page.goto(originalUrl);
+  await checkPreview(
+    messages.nth(1).getByRole("button", { name: "预览 DOCX" }),
+    1,
+    2,
+    "worksheet-inline.png",
+  );
+  await checkPreview(
+    messages.nth(1).getByRole("button", { name: "查看上一版" }),
+    1,
+    1,
+  );
+  await expect(page).toHaveURL(originalUrl);
   await page.reload();
   await expect(messages).toHaveCount(2);
+  assert.ok(
+    visited.every((url) => new URL(url).hash.startsWith("#explore")),
+    "entire flow must stay in chat",
+  );
+  if (hasOffice) {
+    const cid = new URL(originalUrl).hash.split("/")[1],
+      aid = v2.url.split("/")[3];
+    const pageImage = await page.request.get(
+      base + "/api/conversations/" + cid + "/artifacts/" + aid + "/pages/1",
+    );
+    assert.ok(pageImage.ok());
+    assert.equal(pageImage.headers()["x-source-sha256"], sha(v2.bytes));
+    assert.equal((await pageImage.body()).subarray(1, 4).toString(), "PNG");
+  }
   const hashes: string[] = [];
   for (const [i, ext, old, file] of [
     [0, "pptx", ppt, "teacher.pptx"],
@@ -173,6 +321,16 @@ try {
     hashes.push(sha(found.bytes));
   }
   assert.equal(new Set(hashes).size, 3);
+  const { inferRevision } = await import("../server/chat-materials.js");
+  const cid = new URL(originalUrl).hash.split("/")[1],
+    newId = v2.url.split("/")[3];
+  assert.equal(inferRevision(cid, "只改活动单"), newId);
+  const meta = D.parse(
+    D.get("SELECT manifest FROM artifacts WHERE id=?", newId).manifest,
+  );
+  assert.equal(meta.previousId, v1.url.split("/")[3]);
+  assert.equal(meta.version, 2);
+
   assert.equal(turns, 2);
   writeFileSync(
     join(out, "source.txt"),
@@ -184,6 +342,8 @@ try {
       {
         mode: "model protocol fixture",
         turns,
+        attempts,
+        officePagination: hasOffice,
         hashes,
         names: [ppt.name, v1.name, v2.name],
         sameConversation: page.url() === originalUrl,
@@ -220,7 +380,7 @@ try {
     assert.ok(
       xml("w\\:body")
         .text()
-        .includes("[S1] " + material.title + " · 笔记 v1"),
+        .includes("[S1] " + fileName),
     );
     assert.ok(xml("w\\:body").text().includes("至少 12 枚"));
   }
@@ -256,7 +416,9 @@ try {
   assert.ok(doc(v1.bytes).includes("我的发现"));
   assert.ok(doc(v2.bytes).includes("用证据解释"));
   console.log(
-    "Same course, two turns: teacher PPT, original and revised student DOCX downloaded and recovered byte-for-byte.",
+    "Course workflow: drag/drop, progress and failed-turn retry, targeted revision, original bytes recovered; Office pages: " +
+      (hasOffice ? "rendered" : "runtime unavailable, recovery UI verified") +
+      ".",
   );
 } finally {
   await browser.close();

@@ -55,6 +55,10 @@ export async function pdfPage(assetId: string, pageNumber: number) {
   const { a, data } = assetBuffer(assetId);
   if (!a.name.toLowerCase().endsWith(".pdf"))
     err("PREVIEW_UNSUPPORTED", "仅PDF提供分页预览", 422);
+  return {...await renderPdfPage(data,pageNumber),sourceHash:a.hash};
+}
+
+export async function renderPdfPage(data:Buffer,pageNumber:number) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs"),
     task = pdfjs.getDocument({
       data: new Uint8Array(data),
@@ -85,7 +89,6 @@ export async function pdfPage(assetId: string, pageNumber: number) {
     return {
       bytes: canvas.toBuffer("image/png"),
       pageCount: doc.numPages,
-      sourceHash: a.hash,
     };
   } finally {
     await task.destroy();

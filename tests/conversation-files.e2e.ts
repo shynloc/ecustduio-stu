@@ -205,7 +205,9 @@ try {
     4,
   );
   await page.getByRole("button", { name: "打开来源对话" }).first().click();
-  await expect(page).toHaveURL(chatUrl);
+  await expect.poll(()=>page.url().split("?")[0]).toBe(chatUrl);
+  const located=new URLSearchParams(page.url().split("?")[1]).get("file");
+  assert.ok(located);await expect(page.locator("#chat-file-"+located)).toBeFocused();
   await expect(ppt).toBeVisible();
   async function postAs(p: any, path: string, data: any) {
     const { csrf } = await (await p.request.get(url + "/api/session")).json();
@@ -257,6 +259,8 @@ try {
     originalHref,
     "/api/assets/" + raw.asset_id,
     "/api/conversations/" + cid,
+    "/api/conversations/"+cid+"/activity",
+    "/api/conversations/"+cid+"/artifacts/"+fileId+"/pages/1",
   ])
     assert.equal((await other.request.get(url + path)).status(), 403);
   const list = await (

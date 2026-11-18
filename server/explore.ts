@@ -1,3 +1,5 @@
+import {officePage} from "./chat-preview.js";
+import {freezeAttachments,revisionTarget,inferRevision} from "./chat-materials.js";
 import {extractFilePlan, fileInstructions, fileTool, FileCall, chatFileFormat, renderConversationFiles} from "./conversation-files.js";
 import {DocumentJson,Categories,knowledgeView,saveDocument,preserveNote,documentBody} from './knowledge.js';
 import { z } from "zod";
@@ -191,6 +193,14 @@ export function ensureExploreUser(userId: string) {
 }
 export function freezeExplore(input: any, user: any) {
   const c = owned("conversations", input.conversationId, user);
+  const previous=parse(get("SELECT context FROM messages WHERE conversation_id=? AND role='user' ORDER BY rowid DESC LIMIT 1",c.id)?.context);
+  const attachments=freezeAttachments(input.attachmentIds ?? previous.attachments?.map((a:any)=>a.id) ?? [],c.id,user);
+  const sourceUrls=input.sourceUrls ?? (input.mode==="local"?[]:previous.sourceUrls) ?? [];
+  if(sourceUrls.length && input.mode==="local")err("WEB_DISABLED","读取网址需要允许联网，可在本对话研究设置中调整",422);
+  const deferRevision=input.queueTurn && !input.reviseId && !!get(
+    "SELECT 1 FROM messages m JOIN jobs j ON j.id=m.job_id WHERE m.conversation_id=? AND m.role='user' AND j.state IN ('queued','running') LIMIT 1",c.id);
+  const targetId=input.reviseId || (!deferRevision && inferRevision(c.id,input.prompt));
+  const target=targetId ? revisionTarget(c.id,targetId,user) : null;
   const notes = [...new Set<string>(input.noteIds || [])].map((nid) => {
     const n = owned("notes", nid, user);
     return {
@@ -204,7 +214,7 @@ export function freezeExplore(input: any, user: any) {
   if (notes.reduce((n, v) => n + v.body.length, 0) > 40000)
     err("CONTEXT_LIMIT", "选中的笔记超过4万字，请减少上下文");
   return {
-    ...input,
+    ...input,sourceUrlsRequested:input.sourceUrls,attachments,sourceUrls,target,deferRevision,
     userId: user.id,
     conversationId: c.id,
     notes,
@@ -243,6 +253,10 @@ const toolDefs = Object.entries({
     },
   },
 }));
+function matchesRevision(format:string,drafts?:{formats:string[]}[],plan?:{formats:string[]}) {
+  const outputs=drafts || (plan?[plan]:[]);
+  return outputs.length===1 && outputs[0].formats.length===1 && outputs[0].formats[0]===format;
+}
 export async function runExplore(
   input: any,
   progress: (stage: string, payload: any) => void,
@@ -253,10 +267,14 @@ export async function runExplore(
   const user = ensureExploreUser(input.userId),
     cfg = input.config;
   const engine = input.webEngine && input.webEngine !== "default" ? input.webEngine : cfg.exploreEngine;
-  if (input.mode !== "local" && engine === "native" && cfg.model === "deepseek-flash")
-    return runNativeExplore(input, progress, signal, transport, {
+  if (input.mode !== "local" && engine === "native" && cfg.model === "deepseek-flash"){
+    const native=await runNativeExplore(input, progress, signal, transport, {
       check: () => ensureExploreUser(input.userId), local: (query) => searchLocal(query, user), safeUrl,
     });
+    if(input.target && !matchesRevision(input.target.format,native.fileDrafts,native.filePlan))
+      err("WRONG_REVISION_TARGET","模型没有只交付指定附件，请重试该轮",422);
+    return native;
+  }
   const sources: any[] = [],
     warnings: string[] = [],
     tools: any[] = [],
@@ -273,15 +291,16 @@ export async function runExplore(
       const old = sources.find(
         (s) =>
           s.kind === item.kind &&
-          ((s.url && s.url === item.url) ||
+          ((s.assetId && s.assetId===item.assetId) || (s.url && s.url === item.url) ||
             (s.snapshotId && s.snapshotId === item.snapshotId) ||
             (s.noteId && s.noteId === item.noteId)),
       );
       if (old) {
-        Object.assign(old, { excerpt: item.excerpt });
+        Object.assign(old, {excerpt:item.excerpt,historical:false});
         return old;
       }
-      const v = { ...item, id: "S" + (sources.length + 1) };
+      let i=1;while(sources.some(s=>s.id==="S"+i))i++;
+      const v = { ...item, id: "S" + i };
       sources.push(v);
       return v;
     });
@@ -343,6 +362,8 @@ export async function runExplore(
     });
     return result;
   }
+  for(const s of input.target?.originalSources||[]) sources.push({...s,historical:true});
+  for(const source of input.materialSources||[]){add([source]);warnings.push(...(source.warnings||[]));}
   for (const n of input.notes)
     add([
       {
@@ -375,6 +396,7 @@ export async function runExplore(
       role: "user",
       content: json({
         request: input.prompt,
+        ...(input.target?{revisionTarget:{id:input.target.id,title:input.target.title,format:input.target.format,version:input.target.version,content:input.target.content}}:{}),
         selectedNotes: input.notes.map((n: any) => ({
           id: n.id,
           title: n.title,
@@ -467,6 +489,10 @@ export async function runExplore(
       filePlan: drafts.length===1 ? {title:drafts[0].title,formats:drafts[0].formats} : undefined
     } : extractFilePlan(String(m.content||"").trim());
     const {text,filePlan,fileDrafts}=parsed;
+    if(input.target && !matchesRevision(input.target.format,fileDrafts,filePlan)){
+      messages.push({role:"assistant",content:text},{role:"user",content:"只交付 revisionTarget 指定原稿的修订版；调用 deliver_files，格式仅用 "+input.target.format+"。"});
+      continue;
+    }
     if(filePlan)requestedFiles=filePlan;
     const finalMessage=drafts.length ? {role:"assistant",content:text,reasoning_content:m.reasoning_content||""} : m;
     if (!text) err("MODEL_EMPTY", "模型返回了空回答");
@@ -574,6 +600,12 @@ export async function runConversationExport(input:any,jobId:string,progress:any,
   return {artifacts,conversationId:input.conversationId,messageId:m.id};
 }
 
+function conversationActivity(id:string){
+ return all(`SELECT j.id,j.state,j.error,j.stage,
+   (SELECT json_extract(e.payload,'$.message') FROM events e WHERE e.job_id=j.id ORDER BY seq DESC LIMIT 1) AS progress
+   FROM jobs j JOIN messages m ON m.job_id=j.id WHERE m.conversation_id=? AND m.role='user' ORDER BY j.created_at DESC`,id)
+   .map(j=>({...j,error:parse(j.error,null)}));
+}
 export async function registerExplore(app: any, enqueue: any) {
   const text = z.string().trim().min(1),
     entity = z.string().min(1).max(100);
@@ -602,12 +634,13 @@ export async function registerExplore(app: any, enqueue: any) {
     );
     return get("SELECT * FROM conversations WHERE id=?", cid);
   });
+  app.get("/api/conversations/:id/activity",async(req:any)=>conversationActivity(owned("conversations",req.params.id,req.user).id));
   app.get("/api/conversations/:id", async (req: any) => {
     const c = owned("conversations", req.params.id, req.user);
     return {
       ...c,
       messages: all(
-        "SELECT * FROM messages WHERE conversation_id=? ORDER BY rowid",
+        "SELECT m.* FROM messages m WHERE conversation_id=? ORDER BY COALESCE((SELECT u.rowid FROM messages u WHERE u.job_id=m.job_id AND u.role='user'),m.rowid),m.rowid",
         c.id,
       ).map((m) => ({
         ...m,
@@ -619,11 +652,13 @@ export async function registerExplore(app: any, enqueue: any) {
           return ctx;
         })(),
       })),
-      jobs: all(
-        "SELECT j.id,j.state,j.error FROM jobs j JOIN messages m ON m.job_id=j.id WHERE m.conversation_id=? AND m.role='user' ORDER BY j.created_at DESC LIMIT 10",
-        c.id,
-      ).map((j) => ({ ...j, error: parse(j.error, null) })),
+      jobs: conversationActivity(c.id),
     };
+  });
+  app.get("/api/conversations/:id/artifacts/:aid/pages/:page",async(req:any,reply:any)=>{
+    owned("conversations",req.params.id,req.user);
+    const result=await officePage(req.params.id,req.params.aid,Number(req.params.page),req.user);
+    return reply.header("Cache-Control","private, no-store").header("X-Page-Count",String(result.pageCount)).header("X-Source-SHA256",result.sourceHash).type("image/png").send(result.bytes);
   });
   app.post("/api/conversations/:id/messages/:mid/files",async(req:any,reply:any)=>{
     const c=owned("conversations",req.params.id,req.user);
@@ -653,17 +688,15 @@ export async function registerExplore(app: any, enqueue: any) {
         prompt: text.max(10000),
         mode: z.enum(["auto","local", "web", "both"]).default("both"),
         noteIds: z.array(entity).max(8).default([]),
+        attachmentIds:z.array(entity).max(8).optional(),sourceUrls:z.array(z.string().url().max(2500)).max(4).optional(),
+        reviseId:entity.optional(),queueTurn:z.boolean().default(false),
         thinkingMode: z.enum(["default", "disabled", "low", "high", "max"]).default("default"),
         webEngine: z.enum(["default", "native", "controlled"]).default("default"),
         webAction: z.enum(["search", "read"]).default("search"),
       })
       .strict()
       .parse(req.body);
-    const frozen = freezeExplore(
-        { ...b, conversationId: req.params.id },
-        req.user,
-      ),
-      requestKey = `explore:${req.user.id}:${req.headers["idempotency-key"] || id()}`;
+    const requestKey = `explore:${req.user.id}:${req.headers["idempotency-key"] || id()}`;
     const prior = get("SELECT * FROM jobs WHERE idempotency_key=?", requestKey);
     if (prior) {
       const old = parse(prior.input);
@@ -674,13 +707,18 @@ export async function registerExplore(app: any, enqueue: any) {
         (old.webEngine || "default") !== b.webEngine ||
         (old.webAction || "search") !== b.webAction ||
         json(old.noteIds) !== json(b.noteIds) ||
-        old.conversationId !== req.params.id
+        json(old.attachmentIds||[])!==json(b.attachmentIds||[]) || json(old.sourceUrlsRequested||[])!==json(b.sourceUrls||[]) ||
+        old.reviseId!==b.reviseId || old.conversationId !== req.params.id
       )
         err("IDEMPOTENCY_CONFLICT", "相同请求键已用于其他对话要求", 409);
       return { id: prior.id, state: prior.state };
     }
+    const frozen = freezeExplore(
+        { ...b, conversationId: req.params.id },
+        req.user,
+      );
     return tx(() => {
-      if (
+      if (!b.queueTurn &&
         get(
           "SELECT j.id FROM jobs j JOIN messages m ON m.job_id=j.id WHERE m.conversation_id=? AND j.state IN ('queued','running','interrupted')",
           req.params.id,
@@ -701,6 +739,8 @@ export async function registerExplore(app: any, enqueue: any) {
         "[]",
         json({
           mode: b.mode, requestedThinkingMode:b.thinkingMode, thinkingMode: frozen.config.thinkingMode, webEngine: b.webEngine, webAction: b.webAction,
+          attachments:frozen.attachments,sourceUrls:frozen.sourceUrls,
+          ...(frozen.target?{reviseId:frozen.target.id,targetTitle:frozen.target.title}:{}),
           notes: frozen.notes.map((n: any) => ({
             id: n.id,
             title: n.title,
