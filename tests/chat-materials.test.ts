@@ -227,3 +227,97 @@ test("其他创作者不能把知道编号的原文件带入自己的私有对�
     403,
   );
 });
+
+test("直接用上传的 Word 与重排过的 PPTX 创作，原件与来源绑定到当前会话", async () => {
+  const { Document, Packer, Paragraph } = await import("docx");
+  const { default: PptxGenJS } = await import("pptxgenjs");
+  const { default: Zip } = await import("adm-zip");
+  const { load } = await import("cheerio");
+  const doc = await upload(
+    await Packer.toBuffer(
+      new Document({
+        sections: [{ children: [new Paragraph("每种纸桥各测两次。")] }],
+      }),
+    ),
+    "活动单-第2版.docx",
+  );
+  const deck = new PptxGenJS();
+  for (const title of ["先讨论", "先搭桥"])
+    deck.addSlide().addText(title, { x: 1, y: 1, w: 4, h: 1 });
+  const zip = new Zip(
+    (await deck.write({ outputType: "nodebuffer" })) as Buffer,
+  );
+  const xml = load(zip.readAsText("ppt/presentation.xml"), { xml: true });
+  const first = xml("p\\:sldId").first();
+  xml("p\\:sldIdLst").append(first);
+  zip.updateFile("ppt/presentation.xml", Buffer.from(xml.xml()));
+  const ppt = await upload(zip.toBuffer(), "教师演示.pptx");
+  const cid = (await request("POST", "/api/conversations", {})).json().id;
+  const worker = new Worker(undefined, undefined, async (_url, opts) => {
+    const b = JSON.parse(String(opts?.body));
+    const ctx = JSON.parse(b.messages.at(-1).content);
+    const file = ctx.pages ? ppt : doc;
+    assert.equal(ctx.source.originalSources[0].sourceHash, file.hash);
+    if (ctx.pages) {
+      assert.match(ctx.pages[0].text, /先搭桥/);
+      assert.match(ctx.pages[1].text, /先讨论/);
+    } else {
+      assert.equal(ctx.source.version, 2);
+      assert.match(ctx.source.content, /各测两次/);
+    }
+    const content = ctx.pages
+      ? {
+          scenes: [
+            { page: 1, title: "搭桥", text: "先搭桥。" },
+            { page: 2, title: "讨论", text: "再讨论。" },
+          ],
+        }
+      : {
+          title: "陪孩子做纸桥实验",
+          body: "# 陪孩子做纸桥实验\n\n请孩子拿出两次实测记录再解释判断。[S1]",
+        };
+    return Response.json({
+      model: "fixture",
+      choices: [
+        { message: { role: "assistant", content: JSON.stringify(content) } },
+      ],
+    });
+  });
+  for (const [file, prompt] of [
+    [doc, "用上传的活动单写公众号文章"],
+    [ppt, "用上传的教师 PPT 做一分钟配音视频"],
+  ] as const) {
+    const j = await request("POST", "/api/conversations/" + cid + "/messages", {
+      prompt,
+      attachmentIds: [file.id],
+    });
+    assert.equal(j.statusCode, 202);
+    await worker.tick();
+    const result = D.get(
+      "SELECT state,error FROM jobs WHERE id=?",
+      j.json().id,
+    );
+    assert.equal(result.state, "succeeded", result.error);
+    const card = D.parse(
+      D.get(
+        "SELECT context FROM messages WHERE job_id=? AND role='assistant'",
+        j.json().id,
+      ).context,
+    ).adaptation;
+    assert.equal(card.sourceAssetId, file.id);
+    const original = await request(
+      "GET",
+      "/api/artifacts/" + card.sourceId + "/download",
+    );
+    assert.equal(D.hash(original.rawPayload), file.hash);
+    if (card.kind === "wechat") {
+      const prev = (
+        await request("GET", "/api/wechat/previews/" + card.previewId)
+      ).json();
+      const html = load(prev.previewHtml);
+      assert.equal(html("h1").length, 1);
+      assert.equal(html("img").length, 1);
+      assert.match(html("p").last().text(), /\[S1\]/);
+    }
+  }
+});

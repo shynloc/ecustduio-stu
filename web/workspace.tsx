@@ -814,7 +814,7 @@ export function Explore({ data, act, go, search }: any) {
                 {m.role==="user" && <div className="turn-status">
                   {m.context.attachments?.map((a:any)=><a key={a.id} href={"/api/assets/"+a.id} download>{a.name}</a>)}
                   {m.context.sourceUrls?.map((url:string)=><span key={url}>{url}</span>)}
-                  {m.context.targetTitle && <small>修订：{m.context.targetTitle}</small>}
+                  {m.context.targetTitle && <small>{m.context.adaptation ? "来源：" : "修订："}{m.context.targetTitle}</small>}
                   {current.jobs.filter((j:any)=>j.id===m.job_id).map((j:any)=><div key={j.id} role="status">
                     {({queued:"排队中",running:j.progress||"正在处理",succeeded:"已完成",failed:"未完成",interrupted:"任务中断",canceled:"已取消"} as any)[j.state]}
                     {j.error?.message && <span> · {j.error.message}</span>}

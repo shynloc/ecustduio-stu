@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import * as cheerio from "cheerio";
+import {presentationPages} from "./presentation-text.js";
 import mammoth from "mammoth";
 import {webContent,readWebSource} from './ingestion-web.js';
 import { Content, Scope } from "../shared/schema.js";
@@ -74,6 +75,9 @@ export function assetBuffer(assetId: string) {
 }
 export async function extract(buffer: Buffer, name: string, mime = "",baseUrl?:string) {
   const ext = extname(name).toLowerCase();
+  if (ext === ".pptx") {
+    return {text:presentationPages(buffer).map(p=>"第 "+p.page+" 页\n"+p.text).join("\n\n"),title:"",warnings:[]};
+  }
   if (ext === ".docx") {
     if (!validateArchive(buffer).getEntry("word/document.xml"))
       err("INVALID_DOCX", "文件不是有效的DOCX文档", 422);

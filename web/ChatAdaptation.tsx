@@ -146,7 +146,7 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
         </small>
         <small>
           来源：
-          <a href={"#explore/" + cid + "?file=" + card.sourceId}>
+          <a href={card.sourceAssetId ? "/api/artifacts/"+card.sourceId+"/download" : "#explore/" + cid + "?file=" + card.sourceId}>
             {source?.title || card.sourceName} · 第 {card.sourceVersion} 版
           </a>
         </small>

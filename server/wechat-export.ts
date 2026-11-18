@@ -49,6 +49,10 @@ export function wechatHtml(note: any, palette: WechatTheme = "green") {
     null,
     false,
   );
+  const headline = $("section > h1").first();
+  const next = headline.next();
+  if (next.is("h1") && next.text().trim() === headline.text().trim()) next.remove();
+  $("section > h1").slice(1).each((_, heading) => {heading.tagName="h2";});
   $("section").attr(
     "style",
     "max-width:677px;margin:auto;padding:16px;color:#303638;background:#fff;font-family:system-ui,sans-serif;font-size:16px;line-height:1.9;word-break:break-word;",
@@ -92,14 +96,14 @@ export function wechatHtml(note: any, palette: WechatTheme = "green") {
         "max-width:100%;height:auto;display:block;margin:16px auto;",
       );
   });
-  if(note.summary)$('h1').after($('<p>').attr('style','color:#68766e;font-size:14px;padding:12px;background:#f4f5f2').text(note.summary));
-  if(note.coverAssetId)$('h1').before($('<img>').attr('src','/api/assets/'+note.coverAssetId).attr('style','width:100%;height:auto;display:block'));
+  if(note.summary)headline.after($('<p>').attr('style','color:#68766e;font-size:14px;padding:12px;background:#f4f5f2').text(note.summary));
+  if(note.coverAssetId)headline.before($('<img>').attr('src','/api/assets/'+note.coverAssetId).attr('style','width:100%;height:auto;display:block'));
   if (note.sources?.length) {
     const refs = $("<section>");
     refs.append($("<h3>").text("参考来源"));
     for (const s of note.sources)
       refs.append(
-        $("<p>").text((s.title || "资料") + (s.url ? " · " + s.url : "")),
+        $("<p>").text((s.id && /^S\d+$/.test(s.id) ? "["+s.id+"] " : "") + (s.title || "资料") + (s.url ? " · " + s.url : "")),
       );
     $("section").first().append(refs);
   }

@@ -172,7 +172,7 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
       ? await jpeg(b.coverAssetId, user)
       : autoCover(title, palette, user);
   const $ = cheerio.load(
-      wechatHtml({ ...note, title, summary, coverAssetId: cover.id }, palette),
+      wechatHtml({ ...note, title, summary: b.summary, coverAssetId: cover.id }, palette),
       null,
       false,
     ),

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import AdmZip from "adm-zip";
-import { load } from "cheerio";
+import { presentationPages } from "./presentation-text.js";
 import {
   all,
   get,
@@ -19,7 +18,11 @@ import { hasSecret } from "./secrets.js";
 import { storeWorkflowArtifact } from "./workflows.js";
 import { grantMediaAsset } from "./media-access.js";
 import { assetBuffer } from "./domain.js";
-import { revisionTarget } from "./chat-materials.js";
+import {
+  freezeAttachments,
+  readChatMaterials,
+  revisionTarget,
+} from "./chat-materials.js";
 import { renderConversationFiles } from "./conversation-files.js";
 import {
   prepareWechat,
@@ -65,6 +68,7 @@ export type Scene = {
 type Base = {
   sourceId: string;
   sourceName: string;
+  sourceAssetId?: string;
   sourceVersion: number;
   title: string;
   version: number;
@@ -289,11 +293,45 @@ export function queueAdaptation(
       err("WRONG_CARD", "请选择公众号文章", 422);
     op = { edit, card };
   } else {
-    const sourceId = b.derive?.artifactId || sourceFor(cid, kind, b.prompt);
-    if (!sourceId) return null;
+    const files = freezeAttachments(b.attachmentIds || [], cid, user);
+    const candidates = files.filter((f) =>
+      kind === "video"
+        ? /\.pptx$/i.test(f.name)
+        : /\.(pptx|docx)$/i.test(f.name),
+    );
+    const mentionsUpload = /上传|拖入|刚添加/.test(b.prompt);
+    const incoming = candidates.some(
+      (f) =>
+        !get(
+          "SELECT 1 FROM messages m,json_each(m.context,'$.attachments') a WHERE m.conversation_id=? AND json_extract(a.value,'$.id')=? LIMIT 1",
+          cid,
+          f.id,
+        ),
+    );
+    const useUpload =
+      !b.derive &&
+      candidates.length > 0 &&
+      (mentionsUpload ||
+        incoming ||
+        !get(
+          "SELECT 1 FROM messages WHERE conversation_id=? AND json_array_length(context,'$.artifacts')>0 LIMIT 1",
+          cid,
+        ));
+    if (!b.derive && mentionsUpload && files.length && !candidates.length)
+      return null;
+    const sourceId =
+      b.derive?.artifactId || (!useUpload && sourceFor(cid, kind, b.prompt));
+    if (!sourceId && !useUpload) return null;
     if (c.owner_id !== user.id)
       err("FORBIDDEN", "请在自己的对话制作衍生内容", 403);
-    const source = revisionTarget(cid, sourceId, user);
+    const source = sourceId ? revisionTarget(cid, sourceId, user) : undefined;
+    if (useUpload && candidates.length !== 1)
+      err(
+        "CHOOSE_ATTACHMENT",
+        "请添加一份用来改写的 Word 或演示原件；配音视频请选择一份 PPTX。",
+        422,
+      );
+    const upload = useUpload ? candidates[0] : undefined;
     const duration =
       b.prompt.match(/(\d+)\s*秒/) || b.prompt.match(/(\d+|一|两|二)\s*分钟/);
     const seconds = duration
@@ -302,7 +340,13 @@ export function queueAdaptation(
       : 60;
     if (kind === "video" && (seconds < 10 || seconds > 600))
       err("DURATION_LIMIT", "请选择 10 秒至 10 分钟的目标时长", 422);
-    op = { kind, source, seconds, palette: themeIn(b.prompt) || "green" };
+    op = {
+      kind,
+      source,
+      upload,
+      seconds,
+      palette: themeIn(b.prompt) || "green",
+    };
   }
   if (prior) err("IDEMPOTENCY_CONFLICT", "提交已用于另一项任务", 409);
   workflowActor(user.id, !edit && !target);
@@ -329,7 +373,8 @@ export function queueAdaptation(
       b.prompt,
       "[]",
       json({
-        targetTitle: op.source?.title || op.card?.sourceName,
+        targetTitle: op.source?.title || op.upload?.name || op.card?.sourceName,
+        attachments: op.upload ? [op.upload] : undefined,
         adaptation: true,
       }),
       j.id,
@@ -344,29 +389,7 @@ function slideText(artifactId: string) {
   const a = requireRow(
     get("SELECT asset_id FROM artifacts WHERE id=?", artifactId),
   );
-  const zip = new AdmZip(assetBuffer(a.asset_id).data);
-  const entries = zip
-    .getEntries()
-    .filter((e) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName))
-    .sort((a, b) =>
-      a.entryName.localeCompare(b.entryName, "en", { numeric: true }),
-    );
-  if (!entries.length || entries.length > 40)
-    err("SLIDE_LIMIT", "每段视频支持 1–40 页，请先拆分演示", 422);
-  return entries.map((entry, index) => {
-    const xml = load(entry.getData().toString(), { xml: true });
-    const lines = xml("p\\:sp")
-      .toArray()
-      .map((s) =>
-        xml(s)
-          .find("a\\:t")
-          .toArray()
-          .map((t) => xml(t).text())
-          .join(" "),
-      )
-      .filter(Boolean);
-    return { page: index + 1, text: lines.join("\n") };
-  });
+  return presentationPages(assetBuffer(a.asset_id).data);
 }
 function checkpoint(jobId: string, patch: any) {
   run(
@@ -467,9 +490,56 @@ export async function runAdaptation(
       text = "已调整第 " + op.edit.page + " 页讲稿与语速。";
     }
   } else {
-    const source = op.source;
+    let source = op.source;
+    if (op.upload) {
+      const [f] = freezeAttachments([op.upload.id], input.conversationId, user);
+      if (f.hash !== op.upload.hash)
+        err("ASSET_CHANGED", "原件已变化，请重新选择", 409);
+      const [ref] = await readChatMaterials(
+        { ...input, attachments: [f], sourceUrls: [] },
+        jobId,
+        signal,
+        progress,
+        transport,
+      );
+      sources = [{ ...ref, id: "S1" }];
+      const format = f.name.toLowerCase().endsWith(".pptx") ? "pptx" : "docx";
+      const version = Number(
+        f.name
+          .match(/(?:第\s*(\d+)\s*版|[-_ ]v(\d+)(?=\.|[-_ ]))/i)
+          ?.slice(1)
+          .find(Boolean) || 1,
+      );
+      const file = tx(() => {
+        const result = storeWorkflowArtifact(
+          assetBuffer(f.id).data,
+          f.name,
+          format,
+          jobId + ":original",
+          input.conversationId,
+          {
+            conversationId: input.conversationId,
+            ownerId: user.id,
+            version,
+            sourceHash: f.hash,
+            title: f.name,
+          },
+        );
+        grantMediaAsset(result.asset_id, user.id);
+        return result;
+      });
+      source = {
+        id: file.id,
+        title: f.name,
+        format,
+        version,
+        content: ref.excerpt,
+        originalSources: sources,
+      };
+    }
     const provenance = {
       sourceId: source.id,
+      sourceAssetId: op.upload?.id,
       sourceName: source.title,
       sourceVersion: source.version,
       version: 1,
@@ -496,7 +566,7 @@ export async function runAdaptation(
             config: input.config,
             schema,
             instruction:
-              "改写为适合家长阅读的公众号文章，解释学习内容、给出家长可问的问题，事实引用提供的 [S编号]。返回 JSON {title,body}，title最多32字，body为完整 Markdown 正文。",
+              "改写为适合家长阅读的公众号文章，解释学习内容、给出家长可问的问题，事实引用提供的 [S编号]，只在正文相应事实后标编号，来源表由工作台补入；不要把材料中的示例扩展为普遍结论。返回 JSON {title,body}，title最多32字，body为完整 Markdown 正文。",
             context: { request: input.prompt, source },
           },
           progress,
@@ -557,6 +627,7 @@ export async function runAdaptation(
         slideId = deck.id;
       }
       const pages = slideText(slideId);
+      const maxSpoken = Math.ceil(op.seconds * 4.3);
       const schema = z
         .object({
           scenes: z
@@ -572,7 +643,13 @@ export async function runAdaptation(
         .refine(
           (d) =>
             d.scenes.every((s, i) => s.page === i + 1) &&
-            billingCharacters(d.scenes.map((s) => s.text).join("")) <= 10000,
+            billingCharacters(d.scenes.map((s) => s.text).join("")) <= 10000 &&
+            d.scenes.reduce(
+              (sum, s) =>
+                sum + Array.from(s.text.replace(/[\p{P}\s]/gu, "")).length,
+              0,
+            ) <= maxSpoken,
+          "全片旁白过长，请压缩各页，总字数最多 " + maxSpoken + " 字",
         );
       const result =
         cp.plan ||
@@ -582,7 +659,11 @@ export async function runAdaptation(
             config: input.config,
             schema,
             instruction:
-              "根据原演示每页的实际内容写可直接朗读的中文讲稿。按目标时长估算每秒3到4个汉字，用短句。不要朗读来源编号。返回 JSON {scenes:[{page,title,text}]}，包括封面与来源页，并按原页码顺序逐页对应。",
+              "根据原演示每页的实际内容写可直接朗读的中文讲稿。全片总字数约 " +
+              Math.floor(op.seconds * 2.8) +
+              " 字，所有页合计不得超过 " +
+              maxSpoken +
+              " 字。每页一到两句，不朗读元数据。用中文读法写数字、单位和多音词。不要朗读来源编号。返回 JSON {scenes:[{page,title,text}]}，包括封面与来源页，并按原页码顺序逐页对应。页数只表示画面数量，教学环节按原文计算。",
             context: {
               request: input.prompt,
               targetSeconds: op.seconds,
