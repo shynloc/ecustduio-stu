@@ -210,3 +210,5 @@ Mac 自动封面已按本机可用中文字体绘制；试跑中修正了夹具�
 复验用 `npm run build` 和 `npm run test:ui`。Mac 可以同时设置 `ECUSTUDIO_QA_MAC_SPEECH=1`、`ECUSTUDIO_REQUIRE_OFFICE_PREVIEW=1`，从 `test-results/course-delivery/` 打开家长文章 HTML、配音视频、字幕和验证记录。
 
 **真实外部服务待验收。** 当前开发工作台显示“等待连接模型”。本文记录的改写和讲稿由夹具提供，配音服务计费、真实模型内容质量和微信后台草稿均需另外核对。下一次用同一课程对照正文、读音、版式与来源；真实草稿需要维护者指定测试账号并在预览处确认。Safari、手机、Mac 钥匙串授权、Vision OCR 与旧安装升级仍按各自验收记录推进。
+
+**三端 CI 和可复查工件。** 功能提交 `f041d1a` 的 Windows、Intel Mac、Apple Silicon Mac 三个作业均通过。本次下载并核对了三个作业的 `derivatives-evidence.json`。Apple Silicon 作业实际打开 Office 文件并生成 60 秒 MP4；Windows 和 Intel 托管机器验证了缺少 LibreOffice 时的提示和原消息重试。Intel Mac 的真实分页、中文语音与成片另在本地完成。三个环境记录均为 7 次夹具语音请求、1 次夹具草稿添加。本机 `npm audit` 为 0 项。[Actions 记录与工件](https://github.com/shynloc/ecustduio-stu/actions/runs/44375377239)
