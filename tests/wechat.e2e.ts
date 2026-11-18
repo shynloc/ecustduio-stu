@@ -81,9 +81,9 @@ try {
   await expect(page.getByText("已恢复上次预览，可以继续检查和保存。", {exact:true})).toBeVisible();
   assert.equal(fixture.articles.size, 0);
   assert.equal(D.get("SELECT count(*) n FROM wechat_previews").n, 1);
-  await page.getByText("调整标题、封面和样式", {exact:true}).click();
+  await page.getByText("调整标题、摘要和封面", {exact:true}).click();
   await page.getByLabel("文章标题", {exact:true}).fill("课堂观察与讨论");
-  await page.getByLabel("排版风格", {exact:true}).selectOption("blue");
+  await page.getByLabel("公众号主题", {exact:true}).selectOption("blue");
   await page.getByRole("button", {name:"生成手机排版",exact:true}).click();
   await expect(page.frameLocator('iframe[title="公众号手机预览"]').getByRole("heading", {name:"课堂观察与讨论"})).toBeVisible();
   await page.getByRole("button", {name:"编辑正文与配图",exact:true}).click();
@@ -98,9 +98,9 @@ try {
   await page.getByRole("button", {name:"返回公众号排版",exact:true}).click();
   await expect(page.getByText("笔记正文已更新，排版设置已保留。请重新生成手机排版后保存。", {exact:true})).toBeVisible();
   await expect(page.locator(".wechat-save")).toHaveCount(0);
-  await page.getByText("调整标题、封面和样式", {exact:true}).click();
+  await page.getByText("调整标题、摘要和封面", {exact:true}).click();
   await expect(page.getByLabel("文章标题", {exact:true})).toHaveValue("课堂观察与讨论");
-  await expect(page.getByLabel("排版风格", {exact:true})).toHaveValue("blue");
+  await expect(page.getByLabel("公众号主题", {exact:true})).toHaveValue("blue");
   await expect(page.getByLabel("文章摘要", {exact:true})).toHaveValue("");
   await page.getByRole("button", {name:"生成手机排版",exact:true}).click();
   await expect(page.getByText("预览已准备好。检查文章和封面后即可保存。", {exact:true})).toBeVisible();

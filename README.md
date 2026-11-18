@@ -1,18 +1,24 @@
 # EcuStudio 教创工作台
 
-面向教育与内容团队的本地工作台：**输入资料 → 知识库整理 → AI 研究与创作 → 多格式成果**。支持三类账号、局域网访问、DeepSeek Agent、公众号图文排版与远端草稿箱。
+把资料变成可交付的作品。你可以对工作台说：“根据这份叶脉观察笔记，给老师做一份可编辑 PPT，再给学生做一份 Word 活动单。”成稿和文件会回到这条对话里；继续说“把活动单改成适合三年级”，可以在下一轮拿到新稿，并找回原附件。
 
-私有仓库：**`shynloc/ecustduio-stu`**。仓库名按项目所有者指定的拼写保留；产品名称仍是 EcuStudio 教创工作台。当前产品发布基线为 **0.10.0**，本仓库另补充了跨平台开发入口和交接说明，不会自动覆盖已发布安装包。
+公开源码仓库为 [shynloc/ecustduio-stu](https://github.com/shynloc/ecustduio-stu)。下文介绍 `main` 的开发基线。已发布安装包的版本基线为 **0.10.0**。
 
-第一次接手请先看 [HANDOFF.md](HANDOFF.md)。详细产品设计在 [docs/product](docs/product)，Mac 开发说明在 [docs/MAC_DEVELOPMENT.md](docs/MAC_DEVELOPMENT.md)。
+## 可以用它做什么
 
-仓库后续进度：[公众号创作衔接修复](docs/公众号创作衔接修复-2026-11-18.md)，包含预览刷新恢复、正文编辑后返回排版，以及完整图文复制。安装版仍以已发布版本为准。
+| 从哪里开始 | 可以完成的工作 |
+| --- | --- |
+| AI 创作对话 | 结合资料、笔记和对话上下文写作，生成可编辑 PPT、Word、PDF、Markdown 和 HTML。已有回答可以本地另存为文件；在成果库可返回来源对话。 |
+| 资料库与笔记本 | 导入网址、文字、图片或录音，保存原件和出处。在卡片瀑布流中浏览笔记，用富文本或 Markdown 源文编辑，实时预览并撤销、重做。 |
+| 内容创作与项目 | 按模板制作，或从选定的笔记和团队原文开始。共享私人笔记时确认具体版本；进度和交付格式随任务保存，动图和配音视频先核对设计。 |
+| 公众号排版 | 选择文章主题、查看手机预览、复制完整图文或保存到草稿箱。从笔记返回可恢复排版设置；正文变动后重新生成预览。 |
+| 成果库 | 按项目、文件名或格式找回文件，查看来源、下载或打包。管理员、创作者和业务员按各自权限访问。 |
+
+首次接手可以依次阅读 [工程交接](HANDOFF.md)、[开发方向与验收目标](docs/DEVELOPMENT_DIRECTION.md) 和 [Mac 开发指南](docs/MAC_DEVELOPMENT.md)。另有一份 [可直接复制的新聊天提示词](docs/NEXT_AGENT_PROMPT.md)。
 
 ## Mac：从仓库启动开发
 
-要求 macOS 14 或更新版本，支持 Apple Silicon / Intel，需要联网下载依赖。先让仓库所有者给你的 GitHub 账号访问权限；GitHub 账号密码不能直接用作 Git HTTPS 密码，可用 GitHub CLI 或 GitHub Desktop 完成登录。
-
-已经配置 GitHub 登录后：
+支持 macOS 14 及以上版本的 Apple Silicon 和 Intel Mac。首次启动需要联网下载开发依赖。在终端执行：
 
 ```bash
 git clone https://github.com/shynloc/ecustduio-stu.git
@@ -20,7 +26,7 @@ cd ecustduio-stu
 bash Dev.command
 ```
 
-也可以先 `gh auth login`，再 `gh repo clone shynloc/ecustduio-stu`。Mac 首次运行 Git 时若提示安装 Apple Command Line Tools，请按系统提示完成。
+公开仓库可直接通过 HTTPS 克隆。Mac 首次运行 Git 时若提示安装 Apple Command Line Tools，请按系统提示完成。
 
 `Dev.command` 会检查 Node.js：没有合适版本时，自动从 Node 官方站下载并校验到仓库的 `.dev` 目录；安装锁定依赖和 Chromium，检查 SQLite、Canvas、PDF 浏览器及本机 OCR，再启动工作台。不会改动系统 Node，也不需要 sudo、Docker、Homebrew 或全局 Python。
 
@@ -69,12 +75,14 @@ npm run check       # TypeScript 检查
 npm run build       # 构建前后端，同时同步升级运行器
 npm run test:core   # 跨平台核心接口、权限、知识库、公众号与升级契约
 npm run test:dev    # 验证隔离开发入口、Vite代理与会话
-npm run test:ui     # 知识库与公众号的桌面/手机浏览器流程
+npm run test:ui     # 资料管线、公众号、笔记本、导航与对话文件的浏览器回归
 ```
 
 首次运行浏览器测试前执行 `npm run dev:setup`。UI 测试读取当前 `dist`，所以改完前端应先 `npm run build`。`npm test` 保留全部历史测试入口，其中部分测试依赖 Windows、外部能力或额外运行环境；日常和 CI 使用上述明确范围的命令。
 
 GitHub Actions 会在 Windows 与 macOS 上执行依赖安装、构建、核心测试、开发入口和 UI 流程；Mac 还检查脚本语法及双平台源码打包。它不会填真实凭据、发布公众号、上传安装包或更新线上 stable feed。实际结果以 [Actions](https://github.com/shynloc/ecustduio-stu/actions) 为准。
+
+对话文件回归使用注入的模型协议响应，实际运行浏览器和文件渲染器，验证附件可下载、继续改稿、历史回答转格式、失败重试与跨账号隔离。真实模型的工具选择、内容质量及费用需使用对应账户另行验收。
 
 ## 工程导航
 
@@ -84,6 +92,7 @@ GitHub Actions 会在 Windows 与 macOS 上执行依赖安装、构建、核心�
 | `server/db.ts`、`migrations/` | SQLite、迁移、审计；新增迁移按序追加 |
 | `server/tasks.ts` | 持久队列、取消、恢复、租约及调度 |
 | `server/deepseek.ts`、`server/agent.ts`、`server/native-explore.ts` | DeepSeek 协议和受控 Agent 工具 |
+| `server/explore.ts`、`server/conversation-files.ts`、`web/ConversationFiles.tsx` | 对话成稿、附件渲染、消息关联、继续改稿与下载 |
 | `server/knowledge.ts`、`server/pipeline.ts`、`server/production.ts` | 知识库、资料交接和成果制作 |
 | `server/media.ts`、`server/ocr.ts`、`server/ingestion-web.ts` | 文件、语音、OCR、网页采集 |
 | `server/wechat.ts`、`server/wechat-client.ts` | 公众号连接、预览、图片和草稿恢复 |

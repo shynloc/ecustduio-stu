@@ -1,3 +1,5 @@
+import { workspaceNavigation, WorkspaceLinks, SectionLinks } from "./WorkspaceNavigation";
+import { ArtifactLibrary } from "./ArtifactLibrary";
 import {UploadLimits} from './UploadLimits';
 import {EvidencePanel} from './EvidencePanel';
 import {PipelineStudio} from './PipelineStudio';
@@ -175,25 +177,6 @@ const statusNames: any = {
   unknown: "结果待确认",
   blocked: "未就绪",
 };
-const nav = [
-  ["dashboard", "今日工作台", LayoutDashboard],
-  ["input", "资料输入", Plus],
-  ["policies", "政策情报", Radar],
-  ["steward", "一句话任务管家", BrainCircuit],
-  ["impacts", "政策影响追踪", Layers],
-  ["explore", "AI 探索", MessageSquare],
-  ["notes", "知识库与笔记", NotebookPen],
-  ["media", "文件与语音", BrainCircuit],
-  ["topics", "选题策划", Lightbulb],
-  ["projects", "创作项目", FolderOpen],
-  ["library", "创作中心", Library],
-  ["deliver", "多格式成果", Files],
-  ["wechat", "公众号排版", FileText],
-  ["results", "成果与日报", Files],
-  ["tasks", "任务与自动化", Activity],
-  ["settings", "设置", Settings],
-  ["accounts", "账号管理", Users],
-] as const;
 function Badge({
   state,
   children,
@@ -458,7 +441,10 @@ function App({ onLogout }: any) {
     }
   }
   const go = (value: string) => {
-    if(window.dispatchEvent(new CustomEvent('ecu-before-navigate',{cancelable:true,detail:{to:value}})))location.hash=value;
+    if (window.dispatchEvent(new CustomEvent("ecu-before-navigate", {cancelable:true, detail:{to:value}}))) {
+      setMobileNav(false);
+      location.hash = value;
+    }
   };
   const [rawPage, itemId] = route.split("?")[0].split("/");
   const sales = data?.user.role === "sales",
@@ -467,19 +453,7 @@ function App({ onLogout }: any) {
     sales && !["policies", "snapshot", "results", "report"].includes(rawPage)
       ? "policies"
       : rawPage;
-  const active =
-    page === "snapshot"
-      ? "policies"
-      : page === "project"
-        ? "projects"
-        : page === "report"
-          ? "results"
-          : page === "job"
-            ? "tasks"
-            : page === "make"
-              ? "library"
-              : page;
-  const current = nav.find((v) => v[0] === active) || nav[0];
+  const navigation = workspaceNavigation(page, data?.user.role);
   const common = { data, act, go, setModal, refresh, busy, search };
   if (!data)
     return (
@@ -510,37 +484,10 @@ function App({ onLogout }: any) {
             <strong>北京教育研究室</strong>
             <small>本地工作空间</small>
           </div>
-          <ChevronDown size={15} />
         </div>
-        <nav>
-          {[
-            ['工作空间',['dashboard']],
-            ['输入',['input','policies','explore']],
-            ['处理',['notes','media','impacts']],
-            ['输出',['deliver','steward','library','projects','topics','wechat','results','tasks']],
-            ['管理',['settings','accounts']]
-          ].map(([group,keys])=><React.Fragment key={String(group)}>{nav.some(([key])=>(keys as string[]).includes(key)&&(!sales||['policies','results'].includes(key)))&&<div className="nav-label">{group}</div>}{nav
-            .filter(([key])=>(keys as string[]).includes(key))
-            .filter(([key]) =>
-              sales
-                ? ["policies", "results"].includes(key)
-                : key !== "accounts" || admin,
-            )
-            .map(([key, label, Icon]) => (
-              <a
-                key={key}
-                href={"#" + key}
-                className={active === key ? "active" : ""}
-              >
-                <Icon size={19} />
-                <span>{label}</span>
-                {key === "tasks" &&
-                  data.jobs.filter((j: any) =>
-                    ["queued", "running"].includes(j.state),
-                  ).length > 0 && <i className="nav-dot" />}
-              </a>
-            ))}</React.Fragment>)}
-        </nav>
+        <WorkspaceLinks nav={navigation} go={go}
+          activeJobs={data.jobs.filter((j:any)=>["queued","running"].includes(j.state)).length}
+          failedJobs={data.jobs.filter((j:any)=>j.state==="failed").length}/>
         {!sales && (
           <div className="sidebar-footer">
             <div className="agent-mini">
@@ -573,26 +520,26 @@ function App({ onLogout }: any) {
           <div className="breadcrumb">
             <button
               className="icon-btn mobile-menu"
-              aria-label="打开导航"
+              aria-label={mobileNav ? "收起导航" : "打开导航"}
+              aria-expanded={mobileNav}
               onClick={() => setMobileNav(!mobileNav)}
             >
               <Menu />
             </button>
             <span>工作空间</span>
             <ChevronRight size={14} />
-            <strong>{current[1]}</strong>
+            <strong>{navigation.label}</strong>
           </div>
           <div className="top-actions">
-            <div className="global-search">
+            {(["policies","explore","topics","projects"].includes(page) || (page==="notes" && !itemId) || (sales && page==="results")) && <div className="global-search">
               <Search size={16} />
               <input
-                placeholder="搜索当前工作区…"
+                placeholder="搜索当前列表…"
                 aria-label="搜索"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <kbd>⌕</kbd>
-            </div>
+            </div>}
             <span className="local-label">
               <i className="status-dot on" />
               本地运行
@@ -636,10 +583,11 @@ function App({ onLogout }: any) {
               </button>
             </div>
           )}
+          <SectionLinks nav={navigation} page={page} go={go}/>
           {page === "dashboard" && <Dashboard {...common} />}
           {page === 'input'&&<InputCenter {...common}/>}
           {page === 'settings'&&data.user?.role==='admin'&&<UploadLimits/>}
-          {page === 'deliver'&&<PipelineStudio key={itemId||'new-deliver'} {...common} id={itemId}/>}
+          {page === 'deliver'&&<PipelineStudio key={route} {...common} id={itemId}/>}
           {page === 'wechat'&&<WechatEditor {...common} id={itemId}/>}
           {page === "policies" &&
             (sales ? <SalesPolicies {...common} /> : <Policies {...common} />)}
@@ -651,10 +599,10 @@ function App({ onLogout }: any) {
             ))}
           {page === "explore" && <Explore {...common} />}
           {page === "steward" && <WorkflowStudio key={itemId||'new'} {...common} id={itemId}/>}
-          {page === "impacts" && <PolicyImpacts {...common}/>}
+          {page === "impacts" && <PolicyImpacts {...common} id={itemId}/>}
           {page === "visual" && <VisualStudio key={itemId} {...common} id={itemId}/>}
           {page === "notes" && <Notes {...common} />}
-          {page === "media" && <MediaStudio key={itemId || "new"} {...common} id={itemId} />}
+          {(page === "media" || page === "speech") && <MediaStudio key={route} {...common} id={itemId} speech={page==="speech"}/>}
           {page === "topics" && <Topics {...common} />}
           {page === "projects" && <Projects {...common} />}
           {page === "project" && <Project {...common} id={itemId} />}
@@ -663,7 +611,8 @@ function App({ onLogout }: any) {
             <Production key={itemId} {...common} templateId={itemId} />
           )}
           {page === "results" &&
-            (sales ? <SalesResults {...common} /> : <Results {...common} />)}
+            (sales ? <SalesResults {...common} /> : <ArtifactLibrary key={route} {...common} />)}
+          {page === "reports" && !sales && <Reports {...common}/>}
           {page === "report" &&
             (sales ? (
               <SalesReport {...common} id={itemId} />
@@ -674,7 +623,7 @@ function App({ onLogout }: any) {
           {page === "job" && <Job {...common} id={itemId} />}
           {page === "settings" &&
             (admin ? (
-              <SettingsPage {...common} />
+              <SettingsPage {...common} section={itemId} />
             ) : (
               <CreatorSettings {...common} />
             ))}
@@ -730,7 +679,7 @@ function Heading({ eyebrow, title, description, actions }: any) {
   return (
     <div className="page-heading">
       <div>
-        <div className="eyebrow">{eyebrow || "WORKSPACE"}</div>
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>
@@ -753,7 +702,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           day: "numeric",
           weekday: "long",
         })}
-        title="今日工作台"
+        title="工作台"
         description="从教育情报，到有价值的表达。"
         actions={
           <Button
@@ -762,7 +711,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
             onClick={() => act(() => post("/monitor"), "监测任务已加入队列")}
           >
             <RefreshCw size={16} />
-            立即更新
+            立即检查政策更新
           </Button>
         }
       />
@@ -785,13 +734,13 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           <div className="hero-actions">
             <Button
               onClick={() =>
-                setModal({ type: "import", title: "添加研究资料" })
+                go("input")
               }
             >
               <Plus size={17} />
               导入一份资料
             </Button>
-            <button className="text-link" onClick={() => go("projects")}>
+            <button className="text-link" onClick={() => go("library")}>
               开始内容创作 <ArrowRight size={17} />
             </button>
           </div>
@@ -944,7 +893,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           </div>
           <div className="status-row">
             <span>最近日报</span>
-            <strong>{report ? fmt(report.created_at) : "尚无日报"}</strong>
+            <button className="text-link" onClick={()=>go(report ? "report/"+report.id : "reports")}>{report ? fmt(report.created_at) : "查看监测日报"}</button>
           </div>
           <div className="status-note">
             <Clock size={16} />
@@ -957,7 +906,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
             </p>
           </div>
           <Button secondary onClick={() => go("tasks")}>
-            查看任务与自动化 <ArrowRight size={15} />
+            查看任务中心 <ArrowRight size={15} />
           </Button>
         </aside>
       </div>
@@ -999,6 +948,9 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           <span>新建项目</span>
         </button>
       </div>
+      {!!data.recentNotes?.length && <section className="panel pipeline-form lower"><h2>最近编辑的笔记</h2>
+        {data.recentNotes.map((n:any)=><button key={n.id} className="text-link" onClick={()=>go("notes/"+n.id)}>{n.title}</button>)}
+      </section>}
     </>
   );
 }
@@ -1294,11 +1246,11 @@ function Policies({ data, search, go, setModal }: any) {
     <>
       <Heading
         eyebrow="POLICY INTELLIGENCE"
-        title="政策情报"
+        title="团队原文"
         description="保留原文，明确范围，让事实经得起追溯。"
         actions={
           <Button
-            onClick={() => setModal({ type: "import", title: "添加研究资料" })}
+            onClick={() => go("input")}
           >
             <Plus size={16} />
             添加资料
@@ -1344,7 +1296,7 @@ function Policies({ data, search, go, setModal }: any) {
                       <strong>{s.title}</strong>
                       <small>
                         {s.publisher}
-                        {s.previous_id ? " · 存在历史版本" : ""}
+                        {s.previous_id && <> · <button className="text-link" onClick={event=>{event.stopPropagation();go("impacts/"+s.id);}}>查看更新影响</button></>}
                       </small>
                     </td>
                     <td>
@@ -1372,7 +1324,7 @@ function Policies({ data, search, go, setModal }: any) {
               <Button
                 secondary
                 onClick={() =>
-                  setModal({ type: "import", title: "添加研究资料" })
+                  go("input")
                 }
               >
                 导入首份资料
@@ -1479,6 +1431,7 @@ function Snapshot({ id, data, act, go, setModal }: any) {
         description={`${s.publisher} · ${s.published || "日期待核实"} · ${s.scope.year} 年 ${s.scope.stage}`}
         actions={
           <>
+            {s.previous_id && <Button secondary onClick={()=>go("impacts/"+s.id)}>查看版本变化与影响</Button>}
             <Button secondary onClick={async()=>{const n=await act(()=>post('/notes/from-snapshot',{snapshotId:id}),'已保存到知识库');if(n)go('notes/'+n.id);}}>存入知识库</Button>
             <Button onClick={()=>{carry(go,'deliver',[{kind:'snapshot',id}]);}}>自动制作 PPT</Button>
             <Button
@@ -1929,7 +1882,7 @@ function Topics({ data, search, act, go, setModal }: any) {
     <>
       <Heading
         eyebrow="STORY DISCOVERY"
-        title="选题策划"
+        title="选题池"
         description="找到值得讲述的问题，给每一个创作决定一个理由。"
       />
       <div className="panel">
@@ -2197,7 +2150,7 @@ function Projects({ data, search, go, setModal }: any) {
     <>
       <Heading
         eyebrow="CONTENT STUDIO"
-        title="创作项目"
+        title="项目"
         description="一份母稿，多种表达。把资料、想法和成果放在一起。"
         actions={
           <Button
@@ -3336,55 +3289,14 @@ function CharacterForm({ act, close }: any) {
   );
 }
 function LibraryPage({ data, act, setModal, go }: any) {
-  const templates = [
-    [
-      "政策研究",
-      "核查【材料】，地区【北京/区县】，适用年度【年度】，学段【中考/高考】，逐条给出准确引文和待核实项。",
-    ],
-    [
-      "真人口播",
-      "基于已确认母稿，生成【90】秒真人口播，面向【初三家长】，语气【专业亲切】，保留全部条件和例外。",
-    ],
-    [
-      "公众号图文",
-      "将母稿写为【篇幅】公众号稿，解答【读者问题】，提供标题备选、摘要、配图提示和来源。",
-    ],
-    [
-      "讲座 PPT",
-      "规划【分钟数】讲座，共【页数】页，受众【家长/老师】，重点【章节】，每页附讲者备注。",
-    ],
-    [
-      "视频分镜",
-      "用【角色】将母稿转为【秒数】分镜，包含场景、动作、景别、运镜、连续性、台词和通用视频提示词。",
-    ],
-  ];
   return (
     <>
-      <Heading
-        eyebrow="RESOURCE LIBRARY"
-        title="创作中心"
-        description="选择资料、目标与输出格式，自动完成事实提取、母稿和成果制作。"
-        actions={
-          <Button
-            onClick={() =>
-              setModal({ type: "character", title: "新建角色模板" })
-            }
-          >
-            <Plus size={16} />
-            新建角色
-          </Button>
-        }
-      />
-      <div className="section-head">
-        <h2>快捷启动模板</h2>
-        <span className="muted">选资料与参数 → Agent制作 → 下载文件</span>
-      </div>
-      <div className="notice media-entry"><div><strong>从文件、图片或录音开始创作</strong><p>DeepSeek 解析文档、理解图表、转写录音，校正后直接进入事实提取与母稿制作。</p></div><Button secondary onClick={() => go("media")}>打开文件与语音</Button></div>
+      <Heading title="内容创作" description="选择模板制作，或直接在对话里告诉 AI 要交付什么。"
+        actions={<Button onClick={()=>go("explore")}><MessageSquare size={16}/>在对话中制作</Button>}/>
       <div className="template-grid">
-        {productionTemplates.map((template, i) => (
+        {productionTemplates.map((template) => (
           <div className="panel template-card" key={template.id}>
-            <span className="eyebrow">0{i + 1} / WORKFLOW</span>
-            <h3>{template.name}</h3>
+            <h3>{template.id === "wechat" ? "写公众号文章" : template.name}</h3>
             <p>{template.description}</p>
             <Button onClick={() => go("make/" + template.id)}>
               <Play size={15} />
@@ -3404,10 +3316,8 @@ function LibraryPage({ data, act, setModal, go }: any) {
           </div>
         ))}
       </div>
-      <div className="section-head lower">
-        <h2>角色资产</h2>
-        <span className="muted">稳定身份 · 可变造型</span>
-      </div>
+      <details className="panel lower material-tools"><summary>视频与分镜的人物素材</summary>
+      <Button secondary onClick={()=>setModal({type:"character",title:"新建人物素材"})}>新建人物素材</Button>
       {data.characters.length ? (
         <div className="project-grid">
           {data.characters.map((c: any) => (
@@ -3431,117 +3341,15 @@ function LibraryPage({ data, act, setModal, go }: any) {
           />
         </div>
       )}
-      <div className="section-head lower">
-        <h2>研究资料库</h2>
-        <button className="text-link" onClick={() => go("policies")}>
-          管理全部资料 <ArrowRight size={15} />
-        </button>
-      </div>
-      <div className="panel library-links">
-        {data.snapshots.slice(0, 8).map((s: any) => (
-          <button key={s.id} onClick={() => go("snapshot/" + s.id)}>
-            <FileText size={18} />
-            <span>{s.title}</span>
-            <small>
-              {s.scope.year} · {s.document_type}
-            </small>
-            <ChevronRight size={16} />
-          </button>
-        ))}
-        {!data.snapshots.length && (
-          <p className="muted">导入的材料会自动归档到这里。</p>
-        )}
-      </div>
+      </details>
     </>
   );
 }
-function Results({ data, act, go, setModal }: any) {
+function Reports({ data, act, go }: any) {
   return (
     <>
-      <Heading
-        eyebrow="DELIVERABLES & ARCHIVE"
-        title="成果与日报"
-        description="每份文件，都能追溯到它的内容版本。"
-      />
-      <div className="section-head">
-        <h2>成果文件</h2>
-        <span className="muted">{data.artifacts.length} 份可下载文件</span>
-      </div>
-      <div className="panel">
-        {data.artifacts.length ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>文件</th>
-                  <th>状态</th>
-                  <th>检查</th>
-                  <th>生成时间</th>
-                  <th>交付</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.artifacts.map((a: any) => (
-                  <tr key={a.id}>
-                    <td>
-                      <strong className="file-name">
-                        <FileText size={18} />
-                        {a.name}
-                      </strong>
-                      <small>
-                        {Math.ceil(a.size / 1024)} KB · {a.format.toUpperCase()}
-                      </small>
-                    </td>
-                    <td>
-                      <Badge
-                        state={a.mode === "release" ? "verified" : "pending"}
-                      >
-                        {a.mode === "release" ? "可发布版本" : "研究草稿"}
-                      </Badge>
-                    </td>
-                    <td>
-                      <small>
-                        {a.quality.structure === "passed" ? "结构已检查" : ""}
-                        {a.quality.visual === "unverified"
-                          ? " · 视觉未验证"
-                          : a.quality.visual === "rendered_not_reviewed"
-                            ? " · 已渲染，待人工看版"
-                            : ""}
-                      </small>
-                    </td>
-                    <td>{fmt(a.created_at)}</td>
-                    <td>
-                      <a
-                        className="text-link"
-                        href={"/api/artifacts/" + a.id + "/download"}
-                      >
-                        <Download size={15} />
-                        下载
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <Empty
-            title="把创作变成真正的成果"
-            text="在项目内保存版本并选择格式导出，文件完成后会在这里出现。"
-          />
-        )}
-      </div>
-      <div className="section-head lower">
-        <h2>每日历史档案</h2>
-        <Button
-          secondary
-          small
-          onClick={() => act(() => post("/monitor"), "监测已启动")}
-        >
-          <RefreshCw size={14} />
-          生成最新日报
-        </Button>
-      </div>
+      <Heading title="监测日报" description="查看每次政策监测生成的日报和来源覆盖情况。"
+        actions={<Button secondary onClick={() => act(() => post("/monitor"), "监测已启动")}>立即检查政策更新</Button>}/>
       <div className="report-grid">
         {data.reports.map((r: any) => (
           <button
@@ -3751,7 +3559,7 @@ function Tasks({ data, act, go }: any) {
     <>
       <Heading
         eyebrow="RUNS & AUTOMATION"
-        title="任务与自动化"
+        title="任务中心"
         description="真实过程、明确状态。关闭页面不会中断后台任务。"
         actions={
           <Button
@@ -3759,7 +3567,7 @@ function Tasks({ data, act, go }: any) {
             onClick={() => act(() => post("/monitor"), "监测任务已排队")}
           >
             <Play size={15} />
-            手动运行每日流程
+            立即检查政策更新
           </Button>
         }
       />
@@ -3776,9 +3584,7 @@ function Tasks({ data, act, go }: any) {
             </p>
           </div>
         </div>
-        <Button secondary small onClick={() => go("settings")}>
-          管理计划
-        </Button>
+        {data.user.role === "admin" && <Button secondary small onClick={() => go("settings/schedule")}>管理计划</Button>}
       </div>
       <div className="panel">
         <div className="section-head">
@@ -3847,7 +3653,8 @@ function Tasks({ data, act, go }: any) {
                             import: "资料导入",
                             ocr: "本机OCR识别",
                             media: "文件与语音处理",
-                            explore: "AI探索对话",
+                            explore: "AI 研究与创作",
+                            "conversation-export":"对话文件生成",
                             production: "Agent制作任务",
                             monitor: "每日监测",
                             agent: "DeepSeek Agent",
@@ -3856,6 +3663,8 @@ function Tasks({ data, act, go }: any) {
                           } as any
                         )[j.type] || j.type}
                       </button>
+                      {j.production && <button className="text-link" onClick={()=>go("deliver/"+j.id)}>继续查看 · {j.production.title||j.production.templateName}</button>}
+                      {j.conversationId && <button className="text-link" onClick={()=>go("explore/"+j.conversationId)}>返回原对话</button>}
                       <small>
                         {j.id.slice(0, 12)} · 尝试 {j.attempt}
                       </small>
@@ -4018,6 +3827,7 @@ function Job({ id, data, act, go, setModal }: any) {
         </section>
         <aside className="panel run-result">
           <h2>结果与依据</h2>
+          {job.conversationId && <Button secondary onClick={()=>go("explore/"+job.conversationId)}>返回原对话与文件</Button>}
           {job.production && (
             <div className="notice">
               <p>
@@ -4030,6 +3840,7 @@ function Job({ id, data, act, go, setModal }: any) {
               >
                 打开制作项目
               </Button>
+              <Button secondary onClick={()=>go("deliver/"+id)}>查看制作进度与交付</Button>
             </div>
           )}
           {result ? (
@@ -4195,10 +4006,11 @@ function Job({ id, data, act, go, setModal }: any) {
     </>
   );
 }
-function SettingsPage({ data, act, setModal }: any) {
+function SettingsPage({ data, act, setModal, section }: any) {
   const [themeSaving, setThemeSaving] = useState(false),
     [themePreview, setThemePreview] = useState<Theme | null>(null),
     [themeError, setThemeError] = useState("");
+  useEffect(() => { if (section === "schedule") document.getElementById("schedule-settings")?.focus(); }, [section]);
   async function switchTheme(theme: Theme) {
     if (themeSaving || theme === data.settings.theme) return;
     const previous = data.settings.theme as Theme;
@@ -4467,7 +4279,7 @@ function SettingsPage({ data, act, setModal }: any) {
               </select>
             </Field>
           </div>
-          <p className="help">思考设置用于事实提取、母稿、内容制作与探索。AI 探索可为单轮覆盖强度；思考 token 计入输出预算，复杂任务可提高预算。连接测试始终使用快速模式。</p>
+          <p className="help">思考设置用于事实提取、母稿、内容制作与探索。AI 研究可为单轮覆盖强度；思考 token 计入输出预算，复杂任务可提高预算。连接测试始终使用快速模式。</p>
           <label className="check">
             <input type="checkbox" disabled={aiBusy} checked={cfg.exploreSafetyCheck !== false} onChange={(e) => edit("exploreSafetyCheck", e.target.checked)} />
             官方探索启用 DeepSeek 内容审核
@@ -4591,7 +4403,7 @@ function SettingsPage({ data, act, setModal }: any) {
             </div>
           </details>
         </section>
-        <section className="panel settings-card">
+        <section id="schedule-settings" tabIndex={-1} className="panel settings-card">
           <h2>
             <Clock size={21} />
             每日监测计划

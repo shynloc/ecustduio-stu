@@ -1,4 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
+import {
+  Bold,
+  Heading2,
+  ImagePlus,
+  Italic,
+  List,
+  ListOrdered,
+  Pilcrow,
+  Quote,
+  Redo2,
+  Table,
+  Undo2,
+  type LucideIcon,
+} from "lucide-react";
+import { EditorIconButton } from "./EditorIconButton";
 import { upload } from "./api";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -11,6 +26,7 @@ export function DocumentEditor({
   onChange,
   label,
   editable = true,
+  iconToolbar = false,
 }: any) {
   const last = useRef(text),
     callback = useRef(onChange);
@@ -63,38 +79,54 @@ export function DocumentEditor({
     }
   }, [text, documentJson, editor]);
   if (!editor) return <p>正在准备编辑器…</p>;
+  const actions: [string, LucideIcon, () => void][] = [
+    ["正文", Pilcrow, () => editor.chain().focus().setParagraph().run()],
+    [
+      "标题",
+      Heading2,
+      () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+    ],
+    ["加粗", Bold, () => editor.chain().focus().toggleBold().run()],
+    ["斜体", Italic, () => editor.chain().focus().toggleItalic().run()],
+    ["列表", List, () => editor.chain().focus().toggleBulletList().run()],
+    [
+      "编号",
+      ListOrdered,
+      () => editor.chain().focus().toggleOrderedList().run(),
+    ],
+    ["引用", Quote, () => editor.chain().focus().toggleBlockquote().run()],
+    [
+      "表格",
+      Table,
+      () =>
+        editor
+          .chain()
+          .focus()
+          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+          .run(),
+    ],
+    ["插入图片", ImagePlus, () => imageInput.current?.click()],
+    ["撤销", Undo2, () => editor.chain().focus().undo().run()],
+    ["重做", Redo2, () => editor.chain().focus().redo().run()],
+  ];
   return (
     <div className="rich-document">
       {editable && (
         <div className="rich-toolbar" role="toolbar" aria-label="正文格式">
-          {[
-            ["正文", () => editor.chain().focus().setParagraph().run()],
-            [
-              "标题",
-              () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-            ],
-            ["加粗", () => editor.chain().focus().toggleBold().run()],
-            ["斜体", () => editor.chain().focus().toggleItalic().run()],
-            ["列表", () => editor.chain().focus().toggleBulletList().run()],
-            ["编号", () => editor.chain().focus().toggleOrderedList().run()],
-            ["引用", () => editor.chain().focus().toggleBlockquote().run()],
-            [
-              "表格",
-              () =>
-                editor
-                  .chain()
-                  .focus()
-                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                  .run(),
-            ],
-            ["插入图片", () => imageInput.current?.click()],
-            ["撤销", () => editor.chain().focus().undo().run()],
-            ["重做", () => editor.chain().focus().redo().run()],
-          ].map(([name, fn]: any) => (
-            <button type="button" key={name} onClick={fn}>
-              {name}
-            </button>
-          ))}
+          {actions.map(([name, Icon, run]) =>
+            iconToolbar ? (
+              <EditorIconButton
+                key={name}
+                label={name}
+                icon={Icon}
+                onClick={run}
+              />
+            ) : (
+              <button type="button" key={name} onClick={run}>
+                {name}
+              </button>
+            ),
+          )}
         </div>
       )}
       {editable && (

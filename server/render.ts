@@ -1,3 +1,5 @@
+import {marked} from "marked";
+import sanitize from "sanitize-html";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   Document,
@@ -19,8 +21,14 @@ const esc = (s: any) =>
         c
       ]!,
   );
+function conversationHtml(markdown:string) {
+  return sanitize(marked.parse(markdown,{async:false}) as string,{
+    allowedTags:["p","h1","h2","h3","h4","h5","h6","ul","ol","li","blockquote","pre","code","strong","em","del","hr","br","table","thead","tbody","tr","th","td","a"],
+    allowedAttributes:{a:["href"]},allowedSchemes:["https","http"],allowProtocolRelative:false
+  });
+}
 export function reportHtml(p: any) {
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.title)}</title><style>body{max-width:850px;margin:40px auto;padding:0 28px;color:#242821;font:16px/1.8 'Microsoft YaHei',sans-serif}header{border-bottom:2px solid #23483d;padding-bottom:18px}h1{font-size:30px;line-height:1.4}h2{font-size:21px;color:#23483d}p{white-space:pre-wrap}section{margin:28px 0}.meta,small{color:#62675f;font-size:13px}.tag{color:#9b571f}a{color:#23483d;overflow-wrap:anywhere}aside{padding:14px;background:#f6f5f1}@page{size:A4;margin:18mm 15mm} @media print{body{margin:0;max-width:none;padding:0}h2{break-after:avoid}section{break-inside:auto}}</style></head><body><header><div class="meta">EcuStudio教创工作台 · ${esc(p.mode === "release" ? "已审核版本" : "研究草稿 · 不作为发布依据")}</div><h1>${esc(p.title)}</h1><div class="meta">${esc(p.meta)}</div></header>${p.blocks.map((b: any) => `<section><h2>${esc(b.title)}</h2><p>${esc(b.text)}</p>${b.notes ? `<aside>讲述／画面提示：${esc(b.notes)}</aside>` : ""}${b.scene ? `<p>场景：${esc(b.scene)}<br>机位：${esc(b.camera)}<br>提示词：${esc(b.prompt)}</p>` : ""}${b.claimIds?.length ? `<small>事实引用：${esc(b.claimIds.join("，"))}</small>` : ""}</section>`).join("")}${p.unverified?.length ? `<aside><h2>待核实</h2>${p.unverified.map((s: string) => `<p>${esc(s)}</p>`).join("")}</aside>` : ""}<h2>信息来源</h2>${p.sources.map((s: any, i: number) => `<p>${i + 1}. ${esc(s.title)} · ${esc(s.publisher)} · ${esc(s.published || "日期待核实")}<br>${/^https?:/.test(s.url) ? `<a href="${esc(s.url)}">${esc(s.url)}</a>` : "用户提供资料"}</p>`).join("")}<footer class="meta">版本 ${esc(p.versionId)} · 生成于 ${esc(p.generatedAt)} · 教育研究辅助工具，具体政策以主管部门原文为准。</footer></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.title)}</title><style>body{max-width:850px;margin:40px auto;padding:0 28px;color:#242821;font:16px/1.8 'Microsoft YaHei',sans-serif}header{border-bottom:2px solid #23483d;padding-bottom:18px}h1{font-size:30px;line-height:1.4}h2{font-size:21px;color:#23483d}p{white-space:pre-wrap}section{margin:28px 0}.meta,small{color:#62675f;font-size:13px}.tag{color:#9b571f}a{color:#23483d;overflow-wrap:anywhere}aside{padding:14px;background:#f6f5f1}@page{size:A4;margin:18mm 15mm} @media print{body{margin:0;max-width:none;padding:0}h2{break-after:avoid}section{break-inside:auto}}</style></head><body><header><div class="meta">EcuStudio教创工作台 · ${esc(p.mode === "release" ? "已审核版本" : "研究草稿 · 不作为发布依据")}</div><h1>${esc(p.title)}</h1><div class="meta">${esc(p.meta)}</div></header>${p.chatMarkdown ? conversationHtml(p.chatMarkdown) : p.blocks.map((b: any) => `<section><h2>${esc(b.title)}</h2><p>${esc(b.text)}</p>${b.notes ? `<aside>讲述／画面提示：${esc(b.notes)}</aside>` : ""}${b.scene ? `<p>场景：${esc(b.scene)}<br>机位：${esc(b.camera)}<br>提示词：${esc(b.prompt)}</p>` : ""}${b.claimIds?.length ? `<small>事实引用：${esc(b.claimIds.join("，"))}</small>` : ""}</section>`).join("")}${p.unverified?.length ? `<aside><h2>待核实</h2>${p.unverified.map((s: string) => `<p>${esc(s)}</p>`).join("")}</aside>` : ""}<h2>信息来源</h2>${p.sources.map((s: any, i: number) => `<p>${i + 1}. ${esc(s.title)} · ${esc(s.publisher)} · ${esc(s.published || "日期待核实")}<br>${/^https?:/.test(s.url) ? `<a href="${esc(s.url)}">${esc(s.url)}</a>` : "用户提供资料"}</p>`).join("")}<footer class="meta">版本 ${esc(p.versionId)} · 生成于 ${esc(p.generatedAt)} · 教育研究辅助工具，具体政策以主管部门原文为准。</footer></body></html>`;
 }
 function chunks(text: string, size = 480) {
   const result = [];
@@ -37,12 +45,12 @@ function chunks(text: string, size = 480) {
 export async function render(p: any, format: string, out: string) {
   const md =
     `# ${p.title}\n\n${p.mode === "release" ? "已审核版本" : "研究草稿 · 待复核"}\n\n${p.meta}\n\n` +
-    p.blocks
+    (p.chatMarkdown || p.blocks
       .map(
         (b: any) =>
           `## ${b.title}\n\n${b.text}\n\n${b.notes ? `备注：${b.notes}\n\n` : ""}${b.scene ? `场景：${b.scene}\n机位：${b.camera}\n提示词：${b.prompt}\n\n` : ""}${b.claimIds?.length ? `事实引用：${b.claimIds.join("，")}\n` : ""}`,
       )
-      .join("\n") +
+      .join("\n")) +
     `\n## 待核实\n${(p.unverified || []).join("\n")}\n\n## 来源\n` +
     p.sources
       .map(
@@ -179,7 +187,7 @@ export async function render(p: any, format: string, out: string) {
       ...p.blocks,
       {
         title: "来源与核验说明",
-        text: p.sources.map((s: any) => `${s.title}\n${s.url}`).join("\n\n"),
+        text: p.sources.map((s: any) => `${s.title}\n${s.url || "本地资料"}`).join("\n\n"),
         notes: p.unverified?.join("\n") || "核对各来源适用范围与时效。",
       },
     ];

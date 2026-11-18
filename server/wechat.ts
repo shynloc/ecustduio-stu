@@ -1,3 +1,4 @@
+import {articleProfile, wechatThemeIds, type WechatTheme} from "../shared/wechat-themes.js";
 import { z } from "zod";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { imageSize } from "image-size";
@@ -123,11 +124,11 @@ async function jpeg(assetId: string, user: any) {
   }
   err("WECHAT_IMAGE", "此配图压缩后仍过大，请更换图片。", 422);
 }
-function autoCover(title: string, palette: string, user: any) {
+function autoCover(title: string, palette: WechatTheme, user: any) {
   const canvas = createCanvas(900, 383),
     ctx = canvas.getContext("2d");
   ctx.fillStyle =
-    palette === "blue" ? "#193e62" : palette === "ink" ? "#252727" : "#23483d";
+    (palette === "milestone-darkcode-dark" ? articleProfile(palette)?.bg : articleProfile(palette)?.heading) ?? (palette === "blue" ? "#193e62" : palette === "ink" ? "#252727" : "#23483d");
   ctx.fillRect(0, 0, 900, 383);
   ctx.fillStyle = "#c7d7b1";
   ctx.fillRect(55, 65, 54, 5);
@@ -361,7 +362,7 @@ export async function registerWechatDrafts(
             .refine((v) => Array.from(v).length <= 120)
             .optional(),
           coverAssetId: z.string().max(100).optional(),
-          palette: z.enum(["green", "blue", "ink"]).default("green"),
+          palette: z.enum(wechatThemeIds).default("green"),
         })
         .strict()
         .parse(req.body),

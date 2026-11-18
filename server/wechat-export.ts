@@ -1,3 +1,4 @@
+import {articleProfile, wechatThemeIds, type WechatTheme} from "../shared/wechat-themes.js";
 import { marked } from "marked";
 import sanitize from "sanitize-html";
 import * as cheerio from "cheerio";
@@ -8,9 +9,9 @@ import { checkMediaAsset, grantMediaAsset } from "./media-access.js";
 import { err, audit } from "./db.js";
 const esc = (s: string) =>
   sanitize(s, { allowedTags: [], allowedAttributes: {} });
-export function wechatHtml(note: any, palette = "green") {
-  const accent =
-    palette === "blue" ? "#245b91" : palette === "ink" ? "#292929" : "#23483d";
+export function wechatHtml(note: any, palette: WechatTheme = "green") {
+  const profile = articleProfile(palette);
+  const accent = profile?.accent ?? (palette === "blue" ? "#245b91" : palette === "ink" ? "#292929" : "#23483d");
   const clean = sanitize(marked.parse(note.body, { async: false }) as string, {
     allowedTags: [
       "p",
@@ -102,6 +103,17 @@ export function wechatHtml(note: any, palette = "green") {
       );
     $("section").first().append(refs);
   }
+  if (profile) {
+    const t = profile;
+    $("section").first().attr("style", `max-width:677px;margin:auto;padding:20px;background:${t.bg};color:${t.text};font-family:${t.fontFamily};font-size:${t.bodySize}px;line-height:${t.lineHeight};overflow-wrap:anywhere;`);
+    $("h1").attr("style", `margin:24px 0 16px;color:${t.titleText};font-family:${t.headingFamily};font-size:${t.h1}px;line-height:1.35;`);
+    $("h2,h3,h4").attr("style", `margin:24px 0 12px;padding-bottom:5px;border-bottom:2px solid ${accent};color:${t.heading};font-family:${t.headingFamily};font-size:${t.h2}px;line-height:1.45;`);
+    $("p,li").attr("style", `margin:10px 0;color:${t.text};line-height:${t.lineHeight};`);
+    $("blockquote").attr("style", `margin:18px 0;padding:8px 14px;background:${t.quoteBg};border-left:3px solid ${t.quoteBorder};`);
+    $("strong").attr("style", `color:${accent};font-weight:700;`);
+    $("th").attr("style", `background:${t.thBg};color:${t.thText};padding:8px;border:1px solid ${t.quoteBorder};text-align:left;`);
+    $("pre,code").attr("style", `background:${t.codeBlockBg};color:${t.codeBlockText};white-space:pre-wrap;overflow-wrap:anywhere;`);
+  }
   return $.html();
 }
 export async function registerWechat(app: any) {
@@ -111,7 +123,7 @@ export async function registerWechat(app: any) {
           revision: z.number().int(),
           summary:z.string().max(300).default(""),
           coverAssetId:z.string().max(100).optional(),
-          palette: z.enum(["green", "blue", "ink"]).default("green"),
+          palette: z.enum(wechatThemeIds).default("green"),
         })
         .strict()
         .parse(req.body),

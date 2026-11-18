@@ -138,9 +138,12 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("Referrer-Policy", "no-referrer");
     reply.header("X-Frame-Options", "DENY");
+    const inlineArticle=req.routeOptions.url==="/api/artifacts/:id/download" &&
+      String(reply.getHeader("Content-Disposition")).startsWith("inline;") &&
+      String(reply.getHeader("Content-Type")).startsWith("text/html");
     reply.header(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      inlineArticle ? "sandbox; default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
     );
     return payload;
   });
@@ -220,7 +223,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
   });
   await registerAuth(app);
   await registerExplore(app, enqueue);
-  await registerPipeline(app);
+  await registerPipeline(app, enqueue);
   await registerResumableUploads(app);
   await registerProduction(app, enqueue);
   await registerMedia(app, enqueue);
@@ -269,6 +272,9 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
       snapshots: all(
         "SELECT id,title,publisher,published,scope,document_type,fetched_at,previous_id FROM snapshots ORDER BY fetched_at DESC LIMIT 500",
       ).map((v) => ({ ...v, scope: parse(v.scope) })),
+      recentNotes: req.user.role === "sales" ? [] : all(
+        "SELECT id,title FROM notes WHERE owner_id=? AND deleted=0 ORDER BY updated_at DESC LIMIT 3", req.user.id
+      ),
       topics: all(
         "SELECT * FROM topics ORDER BY total DESC,created_at DESC LIMIT 500",
       ).map(topicView),
@@ -303,6 +309,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
       result.outbox = [];
       result.jobs = result.jobs.filter((j: any) => {
         if (j.type === "backup") return false;
+        if (j.type === "conversation-export") return get("SELECT owner_id FROM conversations WHERE id=?",j.conversationId)?.owner_id===req.user.id;
         if (["wechat-draft","workflow-plan","workflow","source-review","policy-impact","visual-video","visual-create","visual-assistant","visual-web-import","visual-export","visual-runtime"].includes(j.type)) return parse(get("SELECT input FROM jobs WHERE id=?",j.id)?.input).actorId === req.user.id;
         if (j.type === "media") return get("SELECT owner_id FROM media_jobs WHERE job_id=?",j.id)?.owner_id === req.user.id;
         if (j.type === "explore")
@@ -934,16 +941,17 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
   });
   app.get("/api/artifacts/:id/download", async (req: any, reply) => {
     const r = requireRow(
-      get("SELECT asset_id FROM artifacts WHERE id=?", req.params.id),
+      get("SELECT asset_id,format,manifest FROM artifacts WHERE id=?", req.params.id),
     );
     checkMediaAsset(r.asset_id, req.user);
     const { a, data } = assetBuffer(r.asset_id);
+    const inline=req.query?.preview==="1" && parse(r.manifest).conversationId && ["html","md","pdf"].includes(r.format);
     reply
       .header(
         "Content-Disposition",
-        `attachment; filename*=UTF-8''${encodeURIComponent(a.name)}`,
+        `${inline?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(a.name)}`,
       )
-      .type(a.mime);
+      .type(inline && r.format==="md" ? "text/plain; charset=utf-8" : a.mime);
     return reply.send(data);
   });
   app.post("/api/projects/:id/package", async (req: any) => {

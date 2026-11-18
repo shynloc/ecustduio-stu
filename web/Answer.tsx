@@ -1,7 +1,7 @@
 import React from "react";
 import { marked } from "marked";
-// Render Markdown as React elements. Raw HTML and unregistered links never execute.
-export function Answer({ text, sources = [] }: any) {
+// Render Markdown as React elements. AI answers restrict links to registered sources. Notes can also link to web pages.
+export function Answer({ text, sources = [], noteLinks = false }: any) {
   const links = new Set(
     sources.filter((s: any) => s.url).map((s: any) => s.url),
   );
@@ -14,7 +14,7 @@ export function Answer({ text, sources = [] }: any) {
       if (t.type === "br") return <br key={i} />;
       if (t.type === "del") return <del key={i}>{child}</del>;
       if (t.type === "link")
-        return links.has(t.href) ? (
+        return (links.has(t.href) || (noteLinks && /^https?:\/\//i.test(t.href))) ? (
           <a key={i} href={t.href} target="_blank" rel="noreferrer">
             {child}
           </a>

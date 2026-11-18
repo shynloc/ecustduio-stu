@@ -97,7 +97,7 @@ export function visualView(vid:string,user:any) {
     html:assetBuffer(row.html_asset_id).data.toString('utf8'),qa:parse(row.qa),stale:!!get('SELECT stale FROM versions WHERE id=?',row.version_id)?.stale||!!body.master?.sources.some((s:any)=>get('SELECT id FROM snapshots WHERE previous_id=? LIMIT 1',s.id)),
     artifact:{...a,name:get('SELECT name FROM assets WHERE id=?',row.html_asset_id).name},exports};
 }
-export function approveVisualExport(vid:string,raw:any,user:any,enqueue:any,key?:string) {
+export function approveVisualExport(vid:string,raw:any,user:any,enqueue:any,key?:string,parentProductionId?:string) {
   workflowActor(user.id,false);const v=visualView(vid,user),options=VisualExport.parse(raw);checkVisualSource(v);
   if(options.copyHash!==v.copyHash||options.visualHash!==v.visualHash)err('APPROVAL_STALE','内容或设计已变化，请重新核对',409);
   if(!v.body.master)err('VISUAL_UPGRADE_REQUIRED','请保存设计新版本后再导出',409);
@@ -110,7 +110,8 @@ export function approveVisualExport(vid:string,raw:any,user:any,enqueue:any,key?
   const requestKey='visual-export:'+user.id+':'+(key||id()),requestHash=hash({vid,options});
   const old=get('SELECT * FROM jobs WHERE idempotency_key=?',requestKey);if(old){if(parse(old.input).requestHash!==requestHash)err('IDEMPOTENCY_CONFLICT','相同请求键不能用于不同输出',409);return {id:old.id,state:old.state};}
   return tx(()=>{const aid=id();run('INSERT INTO visual_approvals VALUES(?,?,?,?,?,?,?)',aid,vid,user.id,v.copyHash,v.visualHash,json(options),now());
-    const job=enqueue('visual-export',{actorId:user.id,visualId:vid,approvalId:aid,options,requestHash,config:{...settings(),timeoutSeconds:3600}},requestKey);
+    const job=enqueue('visual-export',{actorId:user.id,visualId:vid,approvalId:aid,options,requestHash,...(parentProductionId?{parentProductionId}:{}),config:{...settings(),timeoutSeconds:3600}},requestKey);
+    if(parentProductionId)run("UPDATE jobs SET checkpoint=json_set(COALESCE(checkpoint,'{}'),'$.deliveryJobId',?) WHERE id=?",job.id,parentProductionId);
     audit('visual.export',vid,{actor:user.id,outputs:options.outputs,approvalId:aid});return job;});
 }
 export async function runVisualCreate(input:any,jobId:string,progress:any,signal:AbortSignal) {

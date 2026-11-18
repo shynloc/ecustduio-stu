@@ -1,3 +1,4 @@
+import {articleProfiles} from "../shared/wechat-themes";
 import React, { useEffect, useRef, useState } from "react";
 import { api, post, upload } from "./api";
 import { copyRichHtml } from "./compat";
@@ -441,8 +442,26 @@ export function WechatEditor({ go, id, data }: any) {
           <p className="muted">
             封面和摘要会自动准备。正文和配图沿用笔记内容。
           </p>
+          <label className="field">
+            公众号主题
+            <select
+              aria-label="公众号主题"
+              disabled={working}
+              value={palette}
+              onChange={(e) => {
+                setPalette(e.target.value);
+                invalidate();
+              }}
+            >
+              <option value="green">书院绿</option>
+              <option value="blue">教育蓝</option>
+              <option value="ink">简洁黑白</option>
+              {Object.entries(articleProfiles).map(([id, theme]) =>
+                <option value={id} key={id}>{theme.name}</option>)}
+            </select>
+          </label>
           <details className="wechat-options">
-            <summary>调整标题、封面和样式</summary>
+            <summary>调整标题、摘要和封面</summary>
             <fieldset disabled={working}>
               <label className="field">
                 文章标题
@@ -476,21 +495,7 @@ export function WechatEditor({ go, id, data }: any) {
                   }}
                 />
               </label>
-              <label className="field">
-                排版风格
-                <select
-                  aria-label="排版风格"
-                  value={palette}
-                  onChange={(e) => {
-                    setPalette(e.target.value);
-                    invalidate();
-                  }}
-                >
-                  <option value="green">书院绿</option>
-                  <option value="blue">教育蓝</option>
-                  <option value="ink">简洁黑白</option>
-                </select>
-              </label>
+
               <label className="field">
                 替换封面（可选）
                 <input

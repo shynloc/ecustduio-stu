@@ -1,4 +1,8 @@
+import { ConversationFiles } from "./ConversationFiles";
 import {carry,readContext} from './context';
+import {EditorIconButton} from './EditorIconButton';
+import {ArrowLeft, AudioLines, Newspaper, Files} from 'lucide-react';
+import {NoteGallery} from './NoteGallery';
 import {KnowledgeBatch} from './KnowledgeBatch';
 import {DocumentReader} from './DocumentReader';
 import {TagInput} from './TagInput';
@@ -103,7 +107,7 @@ export function AuthScreen({ session, onAuth }: any) {
           从有据可循开始。
         </h1>
         <p>
-          教育情报 · AI 探索 · 创作笔记
+          教育情报 · AI 研究 · 创作笔记
           <br />
           把资料连接起来，把想法写成内容。
         </p>
@@ -311,7 +315,7 @@ export function Accounts({ data, act }: any) {
     <>
       <Header
         eyebrow="ACCESS & PEOPLE"
-        title="账号管理"
+        title="成员与权限"
         description="按工作职责分配身份，权限在页面与接口同时生效。"
       >
         <B onClick={() => setSelected({ role: "creator" })}>
@@ -322,7 +326,7 @@ export function Accounts({ data, act }: any) {
       <div className="role-summary">
         {[
           ["admin", "全部功能、账号和工作台管理"],
-          ["creator", "研究、AI 探索、笔记、创作与导出"],
+          ["creator", "研究、AI 研究、笔记、创作与导出"],
           ["sales", "只读政策、日报与可发布成果"],
         ].map(([r, t]) => (
           <section className="panel" key={r}>
@@ -563,7 +567,7 @@ export function Explore({ data, act, go, search }: any) {
     [notes, setNotes] = useState<any[]>([]),
     [current, setCurrent] = useState<any>(null),
     [prompt, setPrompt] = useState(""),
-    [mode, setMode] = useState("both"),
+    [mode, setMode] = useState("auto"),
     [thinkingMode, setThinkingMode] = useState("default"),
     [webEngine, setWebEngine] = useState("default"),
     [webAction, setWebAction] = useState("search"),
@@ -592,62 +596,56 @@ export function Explore({ data, act, go, search }: any) {
       mounted.current = false;
     };
   }, []);
-  useEffect(() => {
-    setError("");
-    setCurrent(null);
-    setJob(null);
-    if (threadId)
-      api("/conversations/" + threadId)
-        .then((c) => {
-          setCurrent(c);
-          const active = c.jobs.find((j: any) =>
-            ["queued", "running"].includes(j.state),
-          );
-          if (active) setJob(active);
-        })
-        .catch((e) => setError(e.message));
-  }, [threadId]);
-  useEffect(() => {
-    if (!job || !["queued", "running"].includes(job.state)) return;
-    let active = true;
-    const timer = setInterval(async () => {
-      try {
-        const j = await api("/jobs/" + job.id);
-        if (!active) return;
-        setStage(j.events?.at(-1)?.payload?.message || "正在处理…");
-        setJob(j);
-        if (!["queued", "running"].includes(j.state)) {
-          setCurrent(await api("/conversations/" + threadId));
-          lists();
-          if (j.state !== "succeeded")
-            setError(j.error?.message || "任务已停止");
+  const routeMatches = (id:string) => location.hash.split("?")[0] === "#explore/"+id;
+  async function reloadConversation(id:string, restoreSelection=false) {
+    const c=await api("/conversations/"+id);
+    if(!routeMatches(id))return;
+    setCurrent(c);
+    if(restoreSelection){
+      const prior=c.messages.filter((m:any)=>m.role==="user").at(-1)?.context;
+      setSelected(prior?.notes?.map((n:any)=>n.id)||[]);
+      setMode(prior?.mode||"auto");setThinkingMode(prior?.requestedThinkingMode||"default");
+      setWebEngine(prior?.webEngine||"default");setWebAction(prior?.webAction||"search");
+    }
+    setJob(c.jobs.find((j:any)=>["queued","running"].includes(j.state)) || null);
+  }
+  useEffect(()=>{
+    setCurrent(null);setJob(null);setStage("");setError("");
+    if(threadId)reloadConversation(threadId,true).catch(e=>routeMatches(threadId)&&setError(e.message));
+  },[threadId]);
+  const pendingFiles=current?.messages?.some((m:any)=>m.context.fileJobs?.some((j:any)=>["queued","running"].includes(j.state)));
+  useEffect(()=>{
+    if(!threadId||(!job&&!pendingFiles))return;
+    let active=true;
+    async function poll(){
+      try{
+        if(job){
+          const j=await api("/jobs/"+job.id);
+          if(!active||!routeMatches(threadId))return;
+          setStage(j.events?.at(-1)?.payload?.message || "正在处理…");
+          if(["queued","running"].includes(j.state)&&!pendingFiles)return;
         }
-      } catch (e: any) {
-        if (active) {
-          setError(e.message);
-          setJob(null);
-        }
-      }
-    }, 1200);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [job?.id, job?.state, threadId]);
+        if(active)await reloadConversation(threadId);
+      }catch(e:any){if(active)setError(e.message);}
+    }
+    const timer=setInterval(poll,1200);
+    return ()=>{active=false;clearInterval(timer);};
+  },[threadId,job?.id,pendingFiles]);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [current?.messages?.length, job?.state]);
-  const working = sending || (job && ["queued", "running"].includes(job.state));
+  const working = sending || !!(threadId && current?.id !== threadId) || (job && ["queued", "running"].includes(job.state));
   async function send(e: any) {
     e.preventDefault();
-    if (!prompt.trim() || working) return;
+    if (!prompt.trim() || working || (threadId && current?.id !== threadId)) return;
+    const origin=location.hash;
     setSending(true);
     setError("");
     try {
       let c = current;
       if (!c) {
         c = await post("/conversations");
-        setCurrent({ ...c, messages: [], jobs: [] });
+        if(location.hash===origin)setCurrent({ ...c, messages: [], jobs: [] });
       }
       const j = await post("/conversations/" + c.id + "/messages", {
         prompt,
@@ -657,11 +655,12 @@ export function Explore({ data, act, go, search }: any) {
         webAction,
         noteIds: selected,
       });
+      if(location.hash!==origin)return;
       setPrompt("");
-      setCurrent(await api("/conversations/" + c.id));
       setJob(j);
-      setStage("正在检索资料…");
+      setStage("任务已排队");
       if (threadId !== c.id) go("explore/" + c.id);
+      await reloadConversation(c.id);
       await lists();
     } catch (e: any) {
       setError(e.message);
@@ -673,8 +672,8 @@ export function Explore({ data, act, go, search }: any) {
     <>
       <Header
         eyebrow="ASK · SEARCH · CREATE"
-        title="AI 探索"
-        description="从一个问题开始，把本地资料与网络线索整理成可继续创作的笔记。"
+        title="AI 创作对话"
+        description="直接提问、写稿，或说出你要的文件。生成的文档和演示会附在回答下方。"
       >
         <B secondary onClick={() => go("media")}>文件 / 图片 / 录音</B>
         <B
@@ -762,15 +761,15 @@ export function Explore({ data, act, go, search }: any) {
             {!current?.messages?.length && (
               <div className="explore-welcome">
                 <span className="eyebrow">YOUR RESEARCH COMPANION</span>
-                <h2>想找什么，或想写什么？</h2>
+                <h2>今天想研究什么，或做一份什么？</h2>
                 <p>
-                  检索已有资料、核对网络线索，或者把几篇笔记整理成内容提纲。
+                  可以从一个问题开始，也可以直接描述成品、受众和用途。
                 </p>
                 <div className="prompt-examples">
                   {[
                     "从本地资料整理中考报名时间和注意事项",
                     "联网查找北京教育考试院最新招生通知，并列出官方来源",
-                    "基于选中的笔记，整理一篇家长沟通内容提纲",
+                    "根据选中的笔记，做一份给家长分享的可编辑 PPT，再给我一份 Word 讲义",
                   ].map((t) => (
                     <button key={t} onClick={() => setPrompt(t)}>
                       <Search size={15} />
@@ -808,6 +807,7 @@ export function Explore({ data, act, go, search }: any) {
                 )}
                 {m.role === "assistant" && (
                   <>
+                    <ConversationFiles conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>
                     <div className="ai-run-summary">
                       <small>{m.context.model || "DeepSeek"} · {{ disabled: "快速回答", low: "轻量思考", high: "深度思考", max: "最强思考" }[m.context.thinkingMode || "disabled"]} · {m.context.engine === "native" ? "官方联网" : "工作台检索"}</small>
                       {m.context.usage && <details>
@@ -884,6 +884,10 @@ export function Explore({ data, act, go, search }: any) {
             <div ref={end} />
           </div>
           <form className="explore-composer" onSubmit={send}>
+            {(!data.settings.allowExternalAI || data.capabilities.deepseek!=="configured") && <small className="notice">新一轮 AI 创作需要连接并启用 DeepSeek。已有回答可直接导出。
+              {data.user.role==="admin" && <button type="button" className="text-link" onClick={()=>go("settings")}>打开设置</button>}
+            </small>}
+            <details className="composer-settings"><summary>研究设置 {selected.length>0 && <span>已选 {selected.length} 篇笔记</span>}</summary>
             <div className="composer-options">
               <label>
                 检索范围{" "}
@@ -893,6 +897,7 @@ export function Explore({ data, act, go, search }: any) {
                   disabled={working}
                   onChange={(e) => setMode(e.target.value)}
                 >
+                  <option value="auto">按任务需要</option>
                   <option value="both">本地 + 联网</option>
                   <option value="local">仅本地资料</option>
                   <option value="web">仅联网</option>
@@ -909,15 +914,12 @@ export function Explore({ data, act, go, search }: any) {
                   <option value="search">搜索与整理</option><option value="read">仅阅读输入的链接</option>
                 </select></label>}
               </>}
-              <small>
-                {selected.length
-                  ? "已选 " + selected.length + " 篇笔记"
-                  : "可在左侧选择笔记上下文"}
-              </small>
+
             </div>
+            </details>
             <textarea
               aria-label="对话指令"
-              placeholder={webAction === "read" && mode !== "local" ? "粘贴公开网页链接，并说明要总结、对比或提取的内容…" : "输入问题、搜索要求或内容整理指令…"}
+              placeholder={webAction === "read" && mode !== "local" ? "粘贴公开网页链接，并说明要总结、对比或提取的内容…" : "提问，或直接说「把刚才的内容做成 PPT」…"}
               rows={3}
               required
               maxLength={10000}
@@ -975,7 +977,8 @@ export function Notes({ data, act, go, search, busy }: any) {
     [history,setHistory]=useState<any[]>([]),
     [error, setError] = useState(""),
     [material, setMaterial] = useState(false);
-  const nid = location.hash.split("?")[0].split("/")[1] || "";
+  const item = location.hash.split("?")[0].split("/")[1] || "";
+  const nid = item === "new" ? "" : item;
   const wechatPreview = new URLSearchParams(location.hash.split("?")[1] || "").get("wechatPreview");
   const saving=useRef(false),composing=useRef(false);const [compositionTick,setCompositionTick]=useState(0);
   const load = () => api("/notes").then(setNotes);
@@ -1001,14 +1004,15 @@ export function Notes({ data, act, go, search, busy }: any) {
       setBody("");setDocumentJson(null);setCategories({folder:"",tags:[],purposes:[],state:"inbox"});
     }
     setHistory([]);return ()=>{active=false;};
-  }, [nid]);
+  }, [item]);
   const dirty = !!current && (title !== current.title || body !== current.body || JSON.stringify(categories)!==JSON.stringify(current.categories) || JSON.stringify(documentJson)!==JSON.stringify(current.documentJson));
   useEffect(()=>{
     if(!dirty||!current||!title.trim()||!body.trim()||error)return;
     const timeout=setTimeout(async()=>{if(saving.current||composing.current)return;saving.current=true;try{const n=await patch('/notes/'+current.id,{title,body,documentJson,categories,revision:current.revision});if(location.hash.split('?')[0].split('/')[1]===current.id)setCurrent(n);load().catch(()=>{});}catch(e:any){setError(e.message+'。当前编辑仍保留在页面中，请先复制正文再处理版本冲突。');}finally{saving.current=false;}},1600);
     return ()=>clearTimeout(timeout);
   },[title,body,documentJson,categories,current,dirty,error,compositionTick]);
-  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
+  const unsaved = current ? dirty : item === "new" && !!(title || body);
+  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(unsaved){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[unsaved]);
   async function save() {
     if(saving.current)return;saving.current=true;
     try{
@@ -1031,66 +1035,28 @@ export function Notes({ data, act, go, search, busy }: any) {
     return n;
     }finally{saving.current=false;}
   }
+  useEffect(() => {
+    if (!unsaved) return;
+    const guard = (event: Event) => {
+      if (!saving.current && !window.confirm("当前修改尚未保存，是否离开？")) event.preventDefault();
+    };
+    window.addEventListener("ecu-before-navigate", guard);
+    return () => window.removeEventListener("ecu-before-navigate", guard);
+  }, [unsaved]);
   if(nid&&(!current||current.id!==nid))return <p role="status">{error||'正在读取笔记…'}</p>;
+  if (!item) return <>
+    <div className="page-heading">
+      <h1>笔记本</h1>
+      <B onClick={() => go("notes/new")}><Plus size={16}/>新建笔记</B>
+    </div>
+    {error && <p role="alert">{error}</p>}
+    <NoteGallery notes={notes} search={search || ""} folder={folderFilter} onFolder={setFolderFilter}
+      onOpen={(id: string) => go("notes/" + id)}/>
+    <KnowledgeBatch notes={notes} disabled={false} onChange={load}/>
+  </>;
   return (
     <>
-      <Header
-        eyebrow="COLLECT · CONNECT · COMPOSE"
-        title="知识库 · 创作笔记"
-        description="把研究结果留下来，也让下一次对话与创作从这里开始。"
-      >
-        <B
-          onClick={() => {
-            if (
-              dirty &&
-              !window.confirm("当前修改尚未保存，是否放弃修改并新建？")
-            )
-              return;
-            go("notes");
-            setCurrent(null);
-            setTitle("");
-            setBody("");setDocumentJson(null);setCategories({folder:"",tags:[],purposes:[],state:"inbox"});
-          }}
-        >
-          <Plus size={16} />
-          新建笔记
-        </B>
-      </Header>
-      <KnowledgeBatch notes={notes} disabled={dirty} onChange={async()=>{await load();if(current){const n=await api("/notes/"+current.id);setCurrent(n);setCategories(n.categories);setDocumentJson(n.documentJson);}}}/>
-      <div className="notes-layout">
-        <aside className="panel thread-panel">
-          <div className="section-head">
-            <h3>我的笔记</h3>
-            <small>{notes.length}篇</small>
-          </div>
-          <label className="field">文件夹<select aria-label="筛选文件夹" value={folderFilter} onChange={e=>setFolderFilter(e.target.value)}><option value="">全部笔记</option>{[...new Set(notes.map(n=>n.categories?.folder).filter(Boolean))].map(f=><option key={f}>{f}</option>)}</select></label><div className="thread-list">
-            {notes
-              .filter((n) => (n.title + " " + n.body+" "+(n.categories?.tags||[]).join(" ")).includes(search || "")&&(!folderFilter||n.categories?.folder===folderFilter))
-              .map((n) => (
-                <button
-                  className={current?.id === n.id ? "selected" : ""}
-                  key={n.id}
-                  onClick={() => {
-                    if (
-                      dirty &&
-                      !window.confirm("当前修改尚未保存，是否放弃修改？")
-                    )
-                      return;
-                    go("notes/" + n.id);
-                  }}
-                >
-                  <strong>{n.title}</strong>
-                  <p>{n.body.replace(/!?(?:\[([^\]]*)\])\([^)]*\)/g,'$1').replace(/[#*_`|>-]/g,'').replace(/\s+/g,' ').slice(0,70)}</p>
-                  <small>
-                    v{n.revision} · {date(n.updated_at)}
-                  </small>
-                </button>
-              ))}
-            {!notes.length && (
-              <p className="muted">可以直接记录，也可以从 AI 回答一键保存。</p>
-            )}
-          </div>
-        </aside>
+      <div className="notebook-detail-nav"><EditorIconButton icon={ArrowLeft} label="返回笔记本" onClick={() => go("notes")}/></div>
         <section className="panel note-editor" onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;setCompositionTick(x=>x+1);}}>
           <div className="section-head">
             <h2>{current ? "编辑笔记" : "写下一个新想法"}</h2>
@@ -1104,7 +1070,7 @@ export function Notes({ data, act, go, search, busy }: any) {
           </div>
           {error && <p role="alert">{error}</p>}
           {!!current?.sourceUpdates?.length&&<div className="notice warning">引用的原资料已有新版本，请重新阅读后再创作。{current.sourceUpdates.map((s:any)=><button key={s.id} className="text-link" onClick={()=>go('snapshot/'+s.id)}>{s.title}</button>)}</div>}
-          {current&&<button className="btn secondary" disabled={dirty} onClick={()=>carry(go,'deliver',[{kind:'note',id:current.id,revision:current.revision}])}>用这篇笔记制作多格式成果</button>}
+
           <F label="笔记标题">
             <input
               value={title}
@@ -1113,38 +1079,24 @@ export function Notes({ data, act, go, search, busy }: any) {
               placeholder="给这个想法起个名字"
             />
           </F>
-          <DocumentReader key={current?.id||'new'} label="笔记内容" text={body} onChange={(v:string,j:any)=>{setBody(v);setDocumentJson(j??null);}} documentJson={documentJson} maxLength={100000} sources={current?.sources||[]}/>
+          <DocumentReader markdownWorkspace key={current?.id||'new'} label="笔记内容" text={body} onChange={(v:string,j:any)=>{setBody(v);setDocumentJson(j??null);}} documentJson={documentJson} maxLength={100000} sources={current?.sources||[]}/>
           <details className="note-classification"><summary>整理笔记 · 文件夹、标签与用途</summary><div className="form-grid"><F label="文件夹"><input value={categories.folder} onChange={e=>setCategories({...categories,folder:e.target.value})}/></F><F label="标签（逗号分隔）"><TagInput value={categories.tags} onChange={(tags:string[])=>setCategories({...categories,tags})}/></F><F label="用途（逗号分隔）"><TagInput value={categories.purposes} onChange={(purposes:string[])=>setCategories({...categories,purposes})}/></F><F label="整理状态"><select value={categories.state} onChange={e=>setCategories({...categories,state:e.target.value})}>{Object.entries({inbox:'收件箱',organized:'已整理','needs-review':'待复核',archived:'已归档'}).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></F></div></details>
-          <div className="button-row">
-            <B disabled={busy || !title.trim() || !body.trim()} onClick={save}>
-              <Save size={16} />
-              保存笔记
-            </B>
-            {current && <B secondary disabled={dirty} onClick={() => openSpeech(go,"note",current.id,title,body)}>生成配音</B>}
-            {current&&<B secondary disabled={dirty} onClick={()=>go('wechat/'+current.id+(wechatPreview?'?preview='+encodeURIComponent(wechatPreview):''))}>{wechatPreview?'返回公众号排版':'公众号排版'}</B>}
+          <div className="note-action-icons" role="group" aria-label="笔记操作">
+            <EditorIconButton icon={Save} label="保存笔记" className="editor-save"
+              disabled={busy || !title.trim() || !body.trim()} onClick={save}/>
             {current && (
               <>
-                <B
-                  secondary
-                  disabled={dirty}
-                  onClick={() => {
-                    carry(go,'explore',[{kind:'note',id:current.id}], 'explore');
-                  }}
-                >
-                  <MessageSquare size={16} />
-                  载入AI对话
-                </B>
-                <B
-                  secondary
-                  disabled={dirty}
-                  onClick={() => setMaterial(!material)}
-                >
-                  <FileText size={16} />
-                  作为创作素材
-                </B>
-                <button
-                  className="icon-btn"
-                  aria-label="删除笔记"
+                <EditorIconButton icon={Files} label="用这篇笔记制作 PPT" disabled={dirty}
+                  onClick={() => carry(go,'deliver',[{kind:'note',id:current.id,revision:current.revision}])}/>
+                <EditorIconButton icon={AudioLines} label="生成配音" disabled={dirty}
+                  onClick={() => openSpeech(go,"note",current.id,title,body)}/>
+                <EditorIconButton icon={Newspaper} label={wechatPreview ? "返回公众号排版" : "公众号排版"} disabled={dirty}
+                  onClick={() => go('wechat/'+current.id+(wechatPreview?'?preview='+encodeURIComponent(wechatPreview):''))}/>
+                <EditorIconButton icon={MessageSquare} label="载入AI对话" disabled={dirty}
+                  onClick={() => carry(go,'explore',[{kind:'note',id:current.id}], 'explore')}/>
+                <EditorIconButton icon={FileText} label="作为创作素材" disabled={dirty}
+                  aria-expanded={material} onClick={() => setMaterial(!material)}/>
+                <EditorIconButton icon={Trash2} label="删除笔记"
                   onClick={async () => {
                     if (
                       !window.confirm(
@@ -1164,9 +1116,7 @@ export function Notes({ data, act, go, search, busy }: any) {
                       load();
                     }
                   }}
-                >
-                  <Trash2 size={17} />
-                </button>
+                />
               </>
             )}
           </div>
@@ -1186,7 +1136,6 @@ export function Notes({ data, act, go, search, busy }: any) {
           <Sources sources={current?.sources} go={go} />
           {current&&<details className="note-history" onToggle={async e=>{if(e.currentTarget.open)setHistory(await api('/notes/'+current.id+'/history'));}}><summary>版本历史 · 可恢复旧正文</summary>{history.map(h=><p key={h.revision}>v{h.revision} · {date(h.created_at)} <button type="button" className="text-link" disabled={dirty||busy} onClick={async()=>{const n=await act(()=>post('/notes/'+current.id+'/restore',{revision:current.revision,restoreRevision:h.revision}),'已恢复为新版本');if(n){setCurrent(n);setTitle(n.title);setBody(n.body);setDocumentJson(n.documentJson);load();}}}>恢复这一版</button></p>)}{!history.length&&<p>首次编辑后会保留上一版。</p>}</details>}
         </section>
-      </div>
     </>
   );
 }
@@ -1356,7 +1305,7 @@ export function SalesPolicies({ data, search, go }: any) {
   return (
     <>
       <Header
-        title="政策情报"
+        title="政策资料"
         eyebrow="POLICY INTELLIGENCE"
         description="查看已收集资料和原始来源，政策内容请以正式文件为准。"
       />
@@ -1436,7 +1385,7 @@ export function SalesResults({ data, go, search }: any) {
   return (
     <>
       <Header
-        title="成果与日报"
+        title="可用成果"
         eyebrow="DELIVERABLES & DAILY"
         description="查看情报日报与已通过发布检查的成果文件。"
       />

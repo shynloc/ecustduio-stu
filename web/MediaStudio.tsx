@@ -28,7 +28,7 @@ export function openSpeech(
   title: string,
   text: string,
 ) {
-  carry(go,'media',[{kind:sourceKind,id:sourceId}], 'speech');
+  carry(go,'speech',[{kind:sourceKind,id:sourceId}], 'speech');
 }
 const duration = (ms: number) =>
   `${Math.floor(ms / 60000)}分${Math.round(ms / 1000) % 60}秒`;
@@ -39,9 +39,9 @@ const field = (label: string, child: any) => (
   </label>
 );
 
-export function MediaStudio({ data, act, go, id }: any) {
+export function MediaStudio({ data, act, go, id, speech = false }: any) {
   const intent:any={};
-  const [action, setAction] = useState(intent.action || "document"),
+  const [action, setAction] = useState(speech ? "tts" : "document"),
     [title, setTitle] = useState(intent.title || ""),
     [prompt, setPrompt] = useState(""),
     [purpose, setPurpose] = useState("rich_layout_recognition"),
@@ -70,6 +70,7 @@ export function MediaStudio({ data, act, go, id }: any) {
     timer = useRef<any>(null),
     alive = useRef(true),
     request = useRef({ body: "", key: uid() });
+  const recent = history.filter(h => (h.action === "tts") === speech);
   const selected = mediaActions.find((a) => a.id === action)!,
     result = job&&["succeeded","partial"].includes(job.state) ? job.result : null;
   const running = job && ["queued", "running"].includes(job.state),
@@ -232,14 +233,14 @@ export function MediaStudio({ data, act, go, id }: any) {
       setJob(j);
       setStage("已排队，正在准备处理");
       await list();
-      go("media/" + j.id);
+      go((action === "tts" ? "speech/" : "media/") + j.id);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setBusy(false);
     }
   }
-  useEffect(()=>{let live=true;readContext().then(c=>{if(!live||!c||c.purpose!=='speech')return;const i=c.items[0],v=i.value;setAction('tts');setTitle(v.title||v.body?.title||'内容配音');setSpeechText(typeof v.body==='string'?v.body:v.body?.blocks?.map((b:any)=>b.text).join('\n\n')||v.content||'');setSource({sourceKind:i.ref.kind,sourceId:i.ref.id});}).catch(e=>live&&setError(e.message));return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;readContext().then(c=>{if(!live||!c||c.purpose!=='speech')return;if(!speech){go('speech?context='+encodeURIComponent(c.id));return;}const i=c.items[0],v=i.value;setAction('tts');setTitle(v.title||v.body?.title||'内容配音');setSpeechText(typeof v.body==='string'?v.body:v.body?.blocks?.map((b:any)=>b.text).join('\n\n')||v.content||'');setSource({sourceKind:i.ref.kind,sourceId:i.ref.id});}).catch(e=>live&&setError(e.message));return()=>{live=false;};},[]);
   async function note(destination: string) {
     setBusy(true);
     try {
@@ -286,8 +287,8 @@ export function MediaStudio({ data, act, go, id }: any) {
       <div className="page-heading">
         <div>
           <span className="eyebrow">READ · UNDERSTAND · LISTEN · CREATE</span>
-          <h1>文件与语音</h1>
-          <p>把文档、画面和录音变为创作素材，让文字成为可试听的作品。</p>
+          <h1>{speech ? "文字配音" : "识别与转写"}</h1>
+          <p>{speech ? "将文字转换为可试听和下载的配音。" : "从文档、图片和录音中提取内容，校正后可保存为笔记。"}</p>
         </div>
         <button
           className="btn secondary"
@@ -297,7 +298,7 @@ export function MediaStudio({ data, act, go, id }: any) {
             setSource(null);
             setTitle("");
             setSpeechText("");
-            go("media");
+            go(speech ? "speech" : "media");
           }}
         >
           <Plus size={16} />
@@ -308,9 +309,10 @@ export function MediaStudio({ data, act, go, id }: any) {
         <section className="panel media-main">
           {!job && (
             <>
-              <div className="media-tabs" role="group" aria-label="处理类型">
+              {!speech && <div className="media-tabs" role="group" aria-label="处理类型">
                 {mediaActions.map((a, i) => {
-                  const Icon = [FileText, FileText, Image, Mic, Volume2][i];
+                  if (a.id === "tts") return null;
+                  const Icon = [FileText, FileText, Image, Mic][i];
                   return (
                     <button
                       key={a.id}
@@ -329,7 +331,7 @@ export function MediaStudio({ data, act, go, id }: any) {
                     </button>
                   );
                 })}
-              </div>
+              </div>}
               <form className="media-form" onSubmit={start}>
                 <p className="muted">{selected.description}</p>
                 {action !== "tts" ? (
@@ -610,11 +612,11 @@ export function MediaStudio({ data, act, go, id }: any) {
                           disabled={busy || text.trim().length < 5}
                           onClick={() => note("explore")}
                         >
-                          带入 AI 探索
+                          带入 AI 研究
                         </button>
                         <button
                           className="btn secondary"
-                          onClick={async () => {try{const n=await post(`/media/${job.id}/note`,{title:resultTitle,text,sourceChecked:sourceChecked?result?.sourceHash:undefined});await carry(go,'media',[{kind:'note',id:n.id}],'speech');setJob(null);setAction('tts');setTitle(resultTitle);setSpeechText(text);setSource({sourceKind:'note',sourceId:n.id});}catch(e:any){setError(e.message);}}}
+                          onClick={async () => {try{const n=await post(`/media/${job.id}/note`,{title:resultTitle,text,sourceChecked:sourceChecked?result?.sourceHash:undefined});await carry(go,'speech',[{kind:'note',id:n.id}],'speech');}catch(e:any){setError(e.message);}}}
                         >
                           用这些文字配音
                         </button>
@@ -759,12 +761,12 @@ export function MediaStudio({ data, act, go, id }: any) {
           <p className="help">
             暂存文件和处理结果按账号隔离。管理员可查看全部。
           </p>
-          {history.length ? (
-            history.map((h) => (
+          {recent.length ? (
+            recent.map((h) => (
               <button
                 key={h.id}
                 className={h.id === job?.id ? "active" : ""}
-                onClick={() => go("media/" + h.id)}
+                onClick={() => go((h.action==="tts"?"speech/":"media/") + h.id)}
               >
                 <strong>{h.title}</strong>
                 <small>
@@ -783,7 +785,7 @@ export function MediaStudio({ data, act, go, id }: any) {
               </button>
             ))
           ) : (
-            <p className="muted">上传一份文件或录音开始。</p>
+            <p className="muted">{speech ? "尚无配音记录。" : "上传一份文件或录音开始。"}</p>
           )}
         </aside>
       </div>

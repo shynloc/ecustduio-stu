@@ -121,7 +121,7 @@ test("仅本地模式不发送联网工具及旧网络回复，官方搜索不�
   const input = E.freezeExplore({ conversationId: conversation.id, prompt: "只讨论写作结构", mode: "local", webEngine: "native", noteIds: [] }, user);
   const transport = (async (_url, opt) => {
     const b = JSON.parse(opt!.body as string);
-    assert.ok(b.tools.every((t: any) => t.function?.name === "search_local"));
+    assert.deepEqual(b.tools.map((t:any)=>t.function.name).sort(),["deliver_files","search_local"]);
     assert.equal(JSON.stringify(b.messages).includes("signed-page-fixture"), false);
     assert.equal(b.messages.some((m: any) => m.content === "示例网站。"), false);
     return Response.json({ choices: [{ message: { content: "可以分为引言、论述和结尾。" } }] });

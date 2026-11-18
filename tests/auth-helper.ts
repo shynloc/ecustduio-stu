@@ -4,7 +4,6 @@ export const testAccount = {
   password: "Test-only-password-2026!",
 };
 export async function setupBrowser(page: any, url: string) {
-  await page.goto(url);
   const state = await page.request.get(url + "/api/session");
   const session = await state.json();
   const r = await page.request.post(
@@ -17,7 +16,7 @@ export async function setupBrowser(page: any, url: string) {
     },
   );
   if (!r.ok()) throw new Error("test login failed: " + (await r.text()));
-  await page.reload();
+  await page.goto(url);
 }
 export async function setupInjected(app: any, host = "localhost") {
   const s = await app.inject({ url: "/api/session", headers: { host } }),

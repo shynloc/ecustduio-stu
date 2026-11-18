@@ -51,4 +51,25 @@ test('创作者不可读取其他账号引用、笔记和上传；业务员禁�
  const admin=D.get("SELECT * FROM users WHERE role='admin'");let aid:string;
  for(const role of ['creator','sales']){const uid=D.id();D.run('INSERT INTO users(id,username,display_name,role,password_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',uid,role,role,role,admin.password_hash,D.now(),D.now());const s=await app.inject({url:'/api/session',headers:{host:'localhost'}}),cookie=String(s.headers['set-cookie']).split(';')[0],login=await app.inject({method:'POST',url:'/api/auth/login',headers:{host:'localhost',cookie,'x-csrf-token':s.json().csrf},payload:{username:role,password:'Test-only-password-2026!'}}),h={host:'localhost',cookie:String(login.headers['set-cookie']).split(';')[0],'x-csrf-token':login.json().csrf};assert.equal(login.statusCode,200,login.body);const c=await app.inject({method:'POST',url:'/api/contexts',headers:h,payload:{refs:[{kind:'note',id:note.id}]}});assert.equal(c.statusCode,403,c.body);const u=await app.inject({method:'POST',url:'/api/upload-sessions',headers:h,payload:{name:'test.txt',size:10,fingerprint:D.hash('test')}});assert.equal(u.statusCode,role==='sales'?403:200);assert.equal((await app.inject({method:'PATCH',url:'/api/settings/upload-limits',headers:h,payload:{maxPdfMB:100,quotaMB:2000}})).statusCode,403);}
 });
+test('制作提交原子化，失败不共享笔记，重放返回原任务，意图保存在任务中',async()=>{
+ const fresh=(await req('POST','/api/notes',{title:'课堂讲义',body:'观察叶片后按小组整理实验步骤，列出证据并核对来源。'})).json();
+ const body={refs:[{kind:'note',id:fresh.id,revision:fresh.revision}],shareNotes:true,template:'wechat',formats:['docx'],prompt:'给家长的观察指引'};
+ const start=(payload:any)=>app.inject({method:'POST',url:'/api/pipeline/start',payload,headers:{...headers,'idempotency-key':'one-delivery'}});
+ const previous=D.settings();
+ try {
+  process.env.DEEPSEEK_API_KEY='synthetic-no-network';
+  D.run('UPDATE settings SET body=?',D.json({...previous,allowExternalAI:false}));
+  assert.equal((await start(body)).statusCode,403);
+  assert.equal(D.get('SELECT count(*) n FROM note_materials WHERE note_id=?',fresh.id).n,0);
+  assert.equal(D.get('SELECT count(*) n FROM snapshots WHERE title=?',fresh.title).n,0);
+  D.run('UPDATE settings SET body=?',D.json({...previous,allowExternalAI:true}));
+  assert.equal((await start({...body,shareNotes:false})).statusCode,409);
+  assert.equal((await start({...body,formats:['pptx']})).statusCode,422);
+  const r=await start(body);assert.equal(r.statusCode,202,r.body);
+  assert.equal((await start(body)).json().id,r.json().id);
+  assert.equal((await start({...body,prompt:'另一个要求'})).statusCode,409);
+  const j=(await req('GET','/api/jobs/'+r.json().id)).json();assert.equal(j.production.templateName,'公众号图文');assert.deepEqual(j.production.deliveryFormats,['docx']);
+  assert.equal(D.get('SELECT count(*) n FROM note_materials WHERE note_id=?',fresh.id).n,1);
+ } finally {D.run('UPDATE settings SET body=?',D.json(previous));delete process.env.DEEPSEEK_API_KEY;}
+});
 after(async()=>{await app.close();D.db.close();});

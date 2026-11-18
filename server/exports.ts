@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { spawn } from "node:child_process";
 import AdmZip from "adm-zip";
 import {
@@ -15,7 +15,9 @@ import {
   run,
   err,
   hash,
+  tx,
 } from "./db.js";
+import { grantMediaAsset } from "./media-access.js";
 import { asset, canExport, versionView } from "./domain.js";
 export const formats = ["md", "html", "pdf", "docx", "pptx", "json", "csv"];
 export function freezeExport(input: any) {
@@ -115,9 +117,10 @@ export async function exportFile(
   input: any,
   jobId: string,
   signal: AbortSignal,
+  beforeStore?: () => void,
 ) {
   const previous = get(
-    "SELECT * FROM artifacts WHERE job_id=? AND format=?",
+    "SELECT a.*, s.name FROM artifacts a JOIN assets s ON s.id=a.asset_id WHERE a.job_id=? AND a.format=?",
     jobId,
     input.format,
   );
@@ -125,78 +128,98 @@ export async function exportFile(
   const token = id(),
     path = join(dataDir, "staging", token + "." + input.format),
     payload = join(dataDir, "staging", token + ".json");
-  writeFileSync(payload, json(input.payload));
-  const script = existsSync(join(root, "dist-server/server/render.js"))
-    ? join(root, "dist-server/server/render.js")
-    : join(root, "server/render.ts");
-  const quality: any = await new Promise((resolve, reject) => {
-    const args = script.endsWith(".ts")
-      ? ["--import", "tsx", script, payload, input.format, path]
-      : [script, payload, input.format, path];
-    const p = spawn(process.execPath, args, {
-      cwd: root,
-      windowsHide: true,
-      signal,
-      stdio: ["ignore", "pipe", "pipe"],
+  try {
+    writeFileSync(payload, json(input.payload));
+    const script = existsSync(join(root, "dist-server/server/render.js"))
+      ? join(root, "dist-server/server/render.js")
+      : join(root, "server/render.ts");
+    const quality: any = await new Promise((resolve, reject) => {
+      const args = script.endsWith(".ts")
+        ? ["--import", "tsx", script, payload, input.format, path]
+        : [script, payload, input.format, path];
+      const p = spawn(process.execPath, args, {
+        cwd: root,
+        windowsHide: true,
+        signal,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let stdout = "",
+        stderr = "";
+      const timeout = setTimeout(() => p.kill(), 300000);
+      p.stdout.on("data", (c) => (stdout += c));
+      p.stderr.on("data", (c) => {
+        stderr = (stderr + c).slice(-2000);
+      });
+      p.on("error", reject);
+      p.on("close", (code) => {
+        clearTimeout(timeout);
+        code === 0
+          ? resolve(parse(stdout, { visual: "unverified" }))
+          : reject(new Error("文件生成失败：" + stderr));
+      });
     });
-    let stdout = "",
-      stderr = "";
-    const timeout = setTimeout(() => p.kill(), 300000);
-    p.stdout.on("data", (c) => (stdout += c));
-    p.stderr.on("data", (c) => {
-      stderr = (stderr + c).slice(-2000);
-    });
-    p.on("error", reject);
-    p.on("close", (code) => {
-      clearTimeout(timeout);
-      code === 0
-        ? resolve(parse(stdout, { visual: "unverified" }))
-        : reject(new Error("文件生成失败：" + stderr));
-    });
-  });
-  signal.throwIfAborted();
-  const buffer = readFileSync(path);
-  if (buffer.length < 20) err("EXPORT_EMPTY", "导出文件为空");
-  if (["docx", "pptx"].includes(input.format)) {
-    const zip = new AdmZip(buffer);
-    if (
-      !zip.getEntry("[Content_Types].xml") ||
-      !zip.getEntry(
-        input.format === "docx" ? "word/document.xml" : "ppt/presentation.xml",
+    signal.throwIfAborted();
+    const buffer = readFileSync(path);
+    if (buffer.length < 20) err("EXPORT_EMPTY", "导出文件为空");
+    if (["docx", "pptx"].includes(input.format)) {
+      const zip = new AdmZip(buffer);
+      if (
+        !zip.getEntry("[Content_Types].xml") ||
+        !zip.getEntry(
+          input.format === "docx"
+            ? "word/document.xml"
+            : "ppt/presentation.xml",
+        )
       )
-    )
-      err("EXPORT_INVALID", "Office 文件结构无效");
-    quality.structure = "passed";
+        err("EXPORT_INVALID", "Office 文件结构无效");
+      quality.structure = "passed";
+    }
+    if (input.format === "pdf" && buffer.subarray(0, 4).toString() !== "%PDF")
+      err("EXPORT_INVALID", "PDF文件结构无效");
+    if (input.targetType === "version") canExport(input.targetId, input.mode);
+    const name = `EcuStudio_${input.payload.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 65)}_${input.targetId?.slice(0, 8) || token.slice(0, 8)}.${input.format}`;
+    const mime: Record<string, string> = {
+      html: "text/html",
+      md: "text/markdown",
+      pdf: "application/pdf",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      json: "application/json",
+      csv: "text/csv",
+    };
+    beforeStore?.();
+    return tx(() => {
+      const a = asset(buffer, name, mime[input.format], "artifact"),
+        artifactId = id();
+      if (input.targetType === "conversation")
+        grantMediaAsset(a.id, input.payload.ownerId);
+      run(
+        "INSERT INTO artifacts VALUES(?,?,?,?,?,?,?,?,?)",
+        artifactId,
+        a.id,
+        input.targetId || input.payload.versionId,
+        input.mode,
+        input.format,
+        json(
+          input.targetType === "conversation"
+            ? {
+                ownerId: input.payload.ownerId,
+                conversationId: input.payload.conversationId,
+                sources: input.payload.sources,
+              }
+            : input.payload,
+        ),
+        json(quality),
+        jobId,
+        now(),
+      );
+      return {
+        ...get("SELECT * FROM artifacts WHERE id=?", artifactId),
+        name: a.name,
+      };
+    });
+  } finally {
+    rmSync(path, { force: true });
+    rmSync(payload, { force: true });
   }
-  if (input.format === "pdf" && buffer.subarray(0, 4).toString() !== "%PDF")
-    err("EXPORT_INVALID", "PDF文件结构无效");
-  if (input.targetType === "version") canExport(input.targetId, input.mode);
-  const name = `EcuStudio_${input.payload.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 65)}_${input.targetId?.slice(0, 8) || token.slice(0, 8)}.${input.format}`;
-  const mime: Record<string, string> = {
-    html: "text/html",
-    md: "text/markdown",
-    pdf: "application/pdf",
-    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    json: "application/json",
-    csv: "text/csv",
-  };
-  const a = asset(buffer, name, mime[input.format], "artifact"),
-    artifactId = id();
-  run(
-    "INSERT INTO artifacts VALUES(?,?,?,?,?,?,?,?,?)",
-    artifactId,
-    a.id,
-    input.targetId || input.payload.versionId,
-    input.mode,
-    input.format,
-    json(input.payload),
-    json(quality),
-    jobId,
-    now(),
-  );
-  return {
-    ...get("SELECT * FROM artifacts WHERE id=?", artifactId),
-    name: a.name,
-  };
 }

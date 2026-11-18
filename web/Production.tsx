@@ -63,7 +63,7 @@ export function Production({ data, act, go, templateId }: any) {
           </p>
         </div>
         <button className="btn secondary" onClick={() => go("library")}>
-          返回创作中心
+          返回内容创作
         </button>
       </div>
       <div className="production-steps">
@@ -249,7 +249,7 @@ export function Production({ data, act, go, templateId }: any) {
               <button
                 type="button"
                 className="text-link"
-                onClick={() => go("policies")}
+                onClick={() => go("input")}
               >
                 前往导入资料 <ArrowRight size={14} />
               </button>

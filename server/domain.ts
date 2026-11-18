@@ -166,6 +166,11 @@ export function snapshotView(s: any) {
   };
 }
 export function saveSnapshot(input: any) {
+  return tx(() => saveSnapshotInTransaction(input));
+}
+
+// The caller owns the transaction when snapshot creation is part of a larger operation.
+export function saveSnapshotInTransaction(input: any) {
   const text = String(input.text || "").trim();
   if (text.length < 20)
     err("PARSE_EMPTY", "可提取正文不足，请粘贴原文或先进行 OCR");
@@ -197,8 +202,7 @@ export function saveSnapshot(input: any) {
     if (p.page) currentPage = p.page;
     else p.page = currentPage;
   }
-  tx(() => {
-    run(
+  run(
       "INSERT INTO snapshots VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       sid,
       input.sourceId || null,
@@ -228,7 +232,6 @@ export function saveSnapshot(input: any) {
         );
     }
     audit("snapshot.import", sid, { previousId: prev?.id || null });
-  });
   return snapshotView(get("SELECT * FROM snapshots WHERE id=?", sid));
 }
 export async function importMaterial(input: any, signal?: AbortSignal) {

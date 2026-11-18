@@ -124,5 +124,15 @@ test('素材模板制作复用共享母版，HTML、原生PPT和演示PDF保持�
   assert.equal(ppt.getEntries().filter(e=>/^ppt\/slides\/slide\d+.xml$/.test(e.entryName)).length,2);
   assert.ok(ppt.readAsText('ppt/slides/slide1.xml').toLowerCase().includes(design.accent.slice(1).toLowerCase()));
   assert.ok(result.artifacts.some(a=>a.format==='pdf'));
+  D.run("UPDATE jobs SET state='succeeded',result=?,input=json_set(input,'$.deliveryFormats',json(?)) WHERE id=?",D.json(result),D.json(['pdf','mp4']),job.id);
+  const approve=(confirmed:boolean)=>app.inject({method:'POST',url:'/api/pipeline/jobs/'+job.id+'/finish-visual',headers:{host:'localhost',cookie:session.cookie,'x-csrf-token':session.csrf},payload:{copyHash:shared.copyHash,visualHash:shared.visualHash,approveCopy:confirmed,approveVisual:confirmed,outputs:['gif']}});
+  assert.notEqual((await approve(false)).statusCode,202);
+  const exported=await approve(true);assert.equal(exported.statusCode,202,exported.body);
+  assert.equal((await approve(true)).json().id,exported.json().id);
+  const child=D.get('SELECT * FROM jobs WHERE id=?',exported.json().id);
+  assert.deepEqual(D.parse(child.input).options.outputs,['mp4']);
+  assert.equal(T.jobView(child).parentProductionId,job.id);
+  assert.equal(T.jobView(D.get('SELECT * FROM jobs WHERE id=?',job.id)).production.deliveryJobId,child.id);
+
 });
 after(async()=>{writeFileSync('test-results/visual-unified-location.txt',D.dataDir);await app.close();D.db.close()});

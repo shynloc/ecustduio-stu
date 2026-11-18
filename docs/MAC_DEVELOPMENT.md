@@ -2,7 +2,7 @@
 
 ## 最短路径
 
-1. 确认你的 GitHub 账号能打开私有仓库 `shynloc/ecustduio-stu`。没有权限时由所有者邀请，不要索要其他人的 token。
+1. 已有 `shynloc/ecustduio-stu` 工作副本时，先检查分支与本地改动；首次获取公开源码时使用下方 HTTPS 地址。
 2. 使用 GitHub Desktop 克隆，或在终端执行 `git clone https://github.com/shynloc/ecustduio-stu.git`。
 3. 进入克隆目录，运行 `bash Dev.command`。不要双击正式安装包里的 Install.command 来替代开发启动。
 4. 打开 http://127.0.0.1:5173，创建开发管理员账号。这个账号和已安装版相互独立。

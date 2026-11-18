@@ -251,7 +251,7 @@ export async function runProduction(
   checkpoint.versionId = target.id;
   saved();
   const artifacts: any[] = [];
-  if ((input.formats.some((f:string)=>['html','pptx'].includes(f)) || input.template==='presentation'&&input.formats.includes('pdf')) && !checkpoint.visual) {
+  if ((input.deliveryFormats?.some((f:string)=>['gif','mp4'].includes(f)) || input.formats.some((f:string)=>['html','pptx'].includes(f)) || input.template==='presentation'&&input.formats.includes('pdf')) && !checkpoint.visual) {
     check();
     checkpoint.visual=await createVisualDraft({actorId:input.actorId,versionId:target.id,designBrief:input.prompt,duration:Math.min(120,input.duration),config:input.config,workflowJobId:jobId},jobId+':visual',progress,signal,transport);
     saved();
@@ -331,19 +331,14 @@ export async function registerProduction(app: any, enqueue: any) {
         err("IDEMPOTENCY_CONFLICT", "相同请求键已用于其他制作要求", 409);
       return { id: existing.id, state: existing.state };
     }
-    return tx(() => {
-      const frozen = freezeProduction(b, req.user);
-      const job = enqueue(
-        "production",
-        { ...frozen, requestHash: hash(b) },
-        requestKey,
-      );
-      audit("production.start", job.id, {
-        actor: req.user.id,
-        projectId: frozen.projectId,
-        template: b.template,
-      });
-      return reply.code(202).send(job);
-    });
+    const job = tx(() => enqueueProduction(b, req.user, enqueue, requestKey, hash(b)));
+    return reply.code(202).send(job);
   });
+}
+
+export function enqueueProduction(raw:any, user:any, enqueue:any, key:string, requestHash:string, deliveryFormats?:string[]) {
+  const frozen = freezeProduction(raw, user);
+  const job = enqueue("production", {...frozen, requestHash, ...(deliveryFormats ? {deliveryFormats} : {})}, key);
+  audit("production.start", job.id, {actor:user.id, projectId:frozen.projectId, template:frozen.template});
+  return job;
 }
