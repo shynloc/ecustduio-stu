@@ -1,0 +1,63 @@
+{
+  "version": "0.3.0",
+  "startedAt": "2026-11-14T07:21:40.342Z",
+  "data": "Public documentation and synthetic fixture only; no business data changed",
+  "checks": [
+    {
+      "name": "official_read_url",
+      "ok": true,
+      "titleReturned": true,
+      "usage": {
+        "inputTokens": 3712,
+        "outputTokens": 329,
+        "cacheHitTokens": 128,
+        "cacheMissTokens": 3584,
+        "reasoningTokens": 172,
+        "safetyTokens": 19,
+        "webSearches": 0,
+        "webFetches": 1,
+        "imageSearches": 0,
+        "cost": null
+      },
+      "signedPageReturned": true,
+      "sourceCount": 1
+    },
+    {
+      "name": "thinking_search_followup",
+      "ok": true,
+      "usage": {
+        "inputTokens": 27082,
+        "outputTokens": 480,
+        "cacheHitTokens": 15488,
+        "cacheMissTokens": 11594,
+        "reasoningTokens": 155,
+        "safetyTokens": 0,
+        "webSearches": 2,
+        "webFetches": 0,
+        "imageSearches": 0,
+        "cost": null
+      },
+      "sourceCount": 21
+    },
+    {
+      "name": "thinking_tools_json_research",
+      "ok": true,
+      "requests": 2,
+      "claims": 1,
+      "usage": {
+        "inputTokens": 1579,
+        "outputTokens": 190,
+        "cacheHitTokens": 640,
+        "cacheMissTokens": 939,
+        "reasoningTokens": 97,
+        "safetyTokens": null,
+        "webSearches": 0,
+        "webFetches": 0,
+        "imageSearches": 0,
+        "cost": null
+      }
+    }
+  ],
+  "ok": true,
+  "finishedAt": "2026-11-14T07:21:57.443Z"
+}

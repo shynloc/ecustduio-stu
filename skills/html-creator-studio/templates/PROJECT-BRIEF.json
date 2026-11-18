@@ -1,0 +1,14 @@
+{
+  "project_id": "sample-personal-site",
+  "title": "个人网站项目",
+  "content_type": "resume",
+  "purpose": "展示可验证的职业经历和作品",
+  "audience": "招聘方和合作伙伴",
+  "output": "web",
+  "mode": "quick",
+  "devices": ["desktop", "mobile"],
+  "semantic_priorities": ["工作经历", "作品成果", "联系入口"],
+  "temporary_mood": "专业、亲切、易读",
+  "project_specific_avoid": ["自动播放声音"],
+  "privacy_boundary": "本地预览；未经授权不部署"
+}

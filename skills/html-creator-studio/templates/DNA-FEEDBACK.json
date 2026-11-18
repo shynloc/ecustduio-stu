@@ -1,0 +1,8 @@
+{
+  "scope": "long_term",
+  "user_evidence": "【需要用户对此次变更的明确反馈原话】",
+  "confirm_signal_ids": ["sig-layout-001"],
+  "reject_signal_ids": [],
+  "add_signals": [],
+  "note": "确认偏好后生成新修订版；修订后整体审批状态仍需重新确认。"
+}

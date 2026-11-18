@@ -1,0 +1,17 @@
+{
+  "version": "0.4.0",
+  "installerRevision": "upgrade1",
+  "fixture": "isolated synthetic Windows 0.3.0 installation",
+  "startedAt": "2026-11-14T08:28:39.552Z",
+  "ok": true,
+  "checks": [
+    "real 0.3.0 service stop and 0.4.0 start",
+    "three roles keep original passwords",
+    "note content retained",
+    "configuration bytes retained",
+    "encrypted credential bytes retained and decryptable",
+    "existing dependencies reused",
+    "local backup present"
+  ],
+  "finishedAt": "2026-11-14T08:28:59.102Z"
+}

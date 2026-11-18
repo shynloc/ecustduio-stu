@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {"id": "precision-desktop", "path": "rendered/precision-resume.html", "width": 1440, "height": 900},
+    {"id": "precision-mobile", "path": "rendered/precision-resume.html", "width": 390, "height": 844},
+    {"id": "warm-desktop", "path": "rendered/warm-resume.html", "width": 1440, "height": 900},
+    {"id": "warm-mobile", "path": "rendered/warm-resume.html", "width": 390, "height": 844},
+    {"id": "quiet-desktop", "path": "rendered/quiet-resume.html", "width": 1440, "height": 900},
+    {"id": "quiet-mobile", "path": "rendered/quiet-resume.html", "width": 390, "height": 844},
+    {"id": "hub-desktop", "path": "rendered/index.html", "width": 1440, "height": 900},
+    {"id": "hub-mobile", "path": "rendered/index.html", "width": 390, "height": 844},
+    {"id": "standalone-desktop", "path": "rendered/standalone-preview.html", "width": 1440, "height": 900},
+    {"id": "standalone-mobile", "path": "rendered/standalone-preview.html", "width": 390, "height": 844}
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "project": "HTML Creator Studio / Video Ready Pilot",
+  "version": "1.3-preview",
+  "source": "已确认的 HTML 创意工坊 v1.2 Skill 与 START-HERE，未引用用户私密文档",
+  "language": "zh-CN",
+  "tagline": "From document to motion-ready visual master",
+  "privacy": "演示全部使用公开产品介绍，没有私人资料",
+  "scenes": [
+    {
+      "id": "S01",
+      "title": "IDEAS, IN MOTION.",
+      "start": 0,
+      "duration": 6,
+      "intent": "品牌开场；文档值得更好的表达",
+      "headline": "IDEAS, IN MOTION.",
+      "background": "paper",
+      "elements": [
+        "intro.title",
+        "intro.orbit",
+        "intro.subtitle"
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "从文档到视觉语言",
+      "start": 6,
+      "duration": 6,
+      "intent": "证明文本结构可被转化为叙事、布局和视觉装置",
+      "headline": "从文档到视觉语言",
+      "background": "paper",
+      "elements": [
+        "decode.paper",
+        "decode.modules",
+        "decode.path"
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "CREATIVE DIRECTION",
+      "start": 12,
+      "duration": 6,
+      "intent": "明确主题、字体、色彩、构图与视觉母版",
+      "headline": "CREATIVE DIRECTION",
+      "background": "night",
+      "elements": [
+        "director.title",
+        "director.cards",
+        "director.palette"
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "DESIGN IN EVERY FRAME",
+      "start": 18,
+      "duration": 6,
+      "intent": "将动画拆成独立可寻址的逐帧轨道",
+      "headline": "DESIGN IN EVERY FRAME",
+      "background": "night",
+      "elements": [
+        "motion.title",
+        "motion.timeline",
+        "motion.playhead"
+      ]
+    },
+    {
+      "id": "S05",
+      "title": "精确到每一处",
+      "start": 24,
+      "duration": 6,
+      "intent": "证明设计先经用户确认和精准改稿再交给视频端",
+      "headline": "精确到每一处",
+      "background": "paper",
+      "elements": [
+        "edit.canvas",
+        "edit.box",
+        "edit.controls"
+      ]
+    },
+    {
+      "id": "S06",
+      "title": "ONE MASTER. MANY FORMATS.",
+      "start": 30,
+      "duration": 6,
+      "intent": "共同母版分别交付 HTML 预览与视频合成端",
+      "headline": "ONE MASTER. MANY FORMATS.",
+      "background": "night",
+      "elements": [
+        "output.html",
+        "output.film",
+        "output.arrow"
+      ]
+    }
+  ],
+  "disclaimer": "这是一段不含原始用户资料的技术验证样片；无旁白和音乐，仅演示视觉及时间轴。"
+}

@@ -1,0 +1,52 @@
+{
+  "repository": "https://github.com/WoYun520/gif-factory",
+  "commit": "bd6bc31a6e0bebe2be5f79838613bd8041052481",
+  "scope": "Selected upstream scripts and references; no example media or model service included",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "7330cdef16d47a3a9d84e8b9689c5a1aec08720477dcd096d0921efacaffd332",
+      "gitBlob": "a81078339787b384323d3966a42063f2dd3bf6f2"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "cd0c4d2eb2cace311d3021198e943e7b8aa7d9526325003156e53af0c3dfe1cd",
+      "gitBlob": "00cabb65dcd42e0dd3340576829c000cf39133e5"
+    },
+    {
+      "path": "GUIDE.md",
+      "sha256": "e9b29069d250e28e2ecc4134370dc3a42f91a594b04a258a1d56094108c19a08",
+      "gitBlob": "3ac216af989f3dd642c317962979167215ef246a"
+    },
+    {
+      "path": "references/manifest.md",
+      "sha256": "6358391d592b5f510f44ec93ffcae480bf30c144ef3ee26f97fa74eb1af76417",
+      "gitBlob": "914a0bf7c3107cfa55062de77f28ab41e8d324d5"
+    },
+    {
+      "path": "references/brand-film.md",
+      "sha256": "832784113fa0d8a6a12556039840624501827315d92b9d28bd24d8b0a305e389",
+      "gitBlob": "512619d007f56577621396066c5b555304b548e3"
+    },
+    {
+      "path": "references/keyframes.md",
+      "sha256": "8069cef956d4d480d24ffe857916b261edb0e27fb7def4a1067f700ff539d43f",
+      "gitBlob": "a1044e944eb7f38f5381c944047321de8f410c6d"
+    },
+    {
+      "path": "scripts/export_pack.py",
+      "sha256": "65a3e970efd2362bff54470fb3e5e8d7568760aa80a0accd486cf600985705fb",
+      "gitBlob": "6a1c9e7ff37906e34f551a4ed5d966dab20ddc4b"
+    },
+    {
+      "path": "scripts/export_keyframes.py",
+      "sha256": "a32f73bc47de8d5d67c6dc2828c62ab4b21bcf09ca0ba778e36e560515d67093",
+      "gitBlob": "9e8f0a267c5c5b7b0572724ae2527c147e66c0c4"
+    },
+    {
+      "path": "scripts/review_gif.py",
+      "sha256": "75349f9ace6458907b11500e06e8fdaf400c32b333fe752014b7e32b332ff718",
+      "gitBlob": "f28c6ad39b4617f27203237bd6df8a15f6448f96"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-11-14T07:53:09.389Z",
+  "version": "0.4.0",
+  "checks": [
+    {
+      "step": "media_to_material",
+      "ok": true
+    },
+    {
+      "step": "research_master_speech_export",
+      "ok": true,
+      "claims": 2,
+      "artifacts": 1,
+      "steps": [
+        "research",
+        "master",
+        "content",
+        "export"
+      ],
+      "usage": {
+        "inputTokens": 10694,
+        "outputTokens": 2659,
+        "cost": null
+      }
+    },
+    {
+      "step": "saved_version_to_audio",
+      "ok": true,
+      "durationMs": 15120,
+      "sourceKind": "version"
+    }
+  ],
+  "ok": true,
+  "finishedAt": "2026-11-14T07:53:40.124Z"
+}

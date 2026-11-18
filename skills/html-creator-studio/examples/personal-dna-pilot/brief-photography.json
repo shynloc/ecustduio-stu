@@ -1,0 +1,14 @@
+{
+  "project_id": "fictional-photo-site",
+  "title": "虚构摄影作品集",
+  "content_type": "photography",
+  "purpose": "以授权作品呈现摄影叙事",
+  "audience": "摄影爱好者与客户",
+  "output": "web",
+  "mode": "quick",
+  "devices": ["desktop", "mobile"],
+  "semantic_priorities": ["摄影项目", "系列故事", "作品版权"],
+  "temporary_mood": "安静、沉浸",
+  "project_specific_avoid": ["未授权图片"],
+  "privacy_boundary": "仅本地预览"
+}

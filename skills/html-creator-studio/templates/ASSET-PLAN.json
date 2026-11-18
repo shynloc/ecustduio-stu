@@ -1,0 +1,19 @@
+{
+  "project": "【项目 ID】",
+  "assets": [
+    {
+      "id": "asset-hero-01",
+      "scene_id": "scene-01",
+      "purpose": "从附件主题衍生的主视觉，不是装饰性通用球体",
+      "origin": "original-svg",
+      "status": "planned",
+      "source_or_license": "作者自创 SVG 几何，未使用第三方素材",
+      "external_transfer_approved": false,
+      "composition": "横版主视觉位于右侧；竖版重新居中并保留字幕区",
+      "palette_material": "项目确认的设计 Token / 笔触/材质",
+      "fallback": "低配显示静态 SVG，文字信息不丢失",
+      "alt_text": "用于表现本项目核心结构的原创示意图",
+      "editable": "svg"
+    }
+  ]
+}

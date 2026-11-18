@@ -1,0 +1,14 @@
+{
+  "project_id": "fictional-resume-site",
+  "title": "虚构创作者个人网站",
+  "content_type": "resume",
+  "purpose": "展示职业经历、项目与个人表达",
+  "audience": "潜在合作伙伴",
+  "output": "web",
+  "mode": "studio",
+  "devices": ["desktop", "mobile"],
+  "semantic_priorities": ["真实经历", "作品", "联系入口"],
+  "temporary_mood": "清楚、可信、带一点个性",
+  "project_specific_avoid": ["夸大职场成果"],
+  "privacy_boundary": "全部虚构资料；只能本地预览"
+}

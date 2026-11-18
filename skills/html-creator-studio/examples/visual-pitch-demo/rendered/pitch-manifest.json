@@ -1,0 +1,64 @@
+{
+  "version": "1.6.0",
+  "project": "HTML 创意工坊",
+  "status": "pitch_unapproved",
+  "user_selection": null,
+  "input_source": "brief provided by creator; no independent fact verification",
+  "directions": [
+    {
+      "id": "editorial",
+      "title": "纸面建筑",
+      "english": "EDITORIAL ATELIER",
+      "tone": "高级编辑 / 明亮材质",
+      "palette": [
+        "#F3F0E8",
+        "#1E2927",
+        "#BB5E42"
+      ],
+      "composition": "超大衬线标题 + 双栏注释 + 纸面结构",
+      "motion": "慢速遮罩 / 字距收拢",
+      "asset": "原创 SVG 折页与压印线条",
+      "tradeoff": "以高品质阅读为主；空间特效较克制",
+      "filename": "editorial.html"
+    },
+    {
+      "id": "signal",
+      "title": "信号空间",
+      "english": "CINEMATIC SIGNAL",
+      "tone": "电影空间 / 技术叙事",
+      "palette": [
+        "#0B1320",
+        "#DFF9F7",
+        "#59E1D2"
+      ],
+      "composition": "深色透视装置 + 巨型标题 + 精细 HUD",
+      "motion": "扫描线 / 定序轨道 / 局部光晕",
+      "asset": "与内容章节一一对应的原创空间轨道",
+      "tradeoff": "适合强叙事；对运动与图层性能要求更高",
+      "filename": "signal.html"
+    },
+    {
+      "id": "collision",
+      "title": "字体碰撞",
+      "english": "TYPE COLLISION",
+      "tone": "瑞士实验 / 平面与动态字体",
+      "palette": [
+        "#EEEBD9",
+        "#132BEB",
+        "#FA5932"
+      ],
+      "composition": "倾斜编号 + 印刷色块 + 破格标题",
+      "motion": "字号错位 / 位移 / 剪裁转场",
+      "asset": "可授权字体与原创拼版形状",
+      "tradeoff": "记忆点强；长文需要单独设计安静阅读区",
+      "filename": "collision.html"
+    }
+  ],
+  "approval_notice": "选择视觉方向不等于确认文案或批准对外发布",
+  "generated_files": [
+    "index.html",
+    "editorial.html",
+    "signal.html",
+    "collision.html"
+  ]
+}

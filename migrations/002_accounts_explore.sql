@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('admin','creator','sales')),status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled','deleted')),password_hash TEXT NOT NULL,must_change_password INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),csrf TEXT NOT NULL,expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS login_attempts(id TEXT PRIMARY KEY,username TEXT NOT NULL,ip TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS login_attempt_time ON login_attempts(created_at);
+CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id),role TEXT NOT NULL CHECK(role IN ('user','assistant')),content TEXT NOT NULL,sources TEXT NOT NULL DEFAULT '[]',context TEXT NOT NULL DEFAULT '{}',job_id TEXT,created_at TEXT NOT NULL,UNIQUE(job_id,role));
+CREATE INDEX IF NOT EXISTS message_conversation ON messages(conversation_id,created_at);
+CREATE TABLE IF NOT EXISTS notes(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,body TEXT NOT NULL,sources TEXT NOT NULL DEFAULT '[]',origin_message_id TEXT REFERENCES messages(id),revision INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted INTEGER NOT NULL DEFAULT 0);
+CREATE UNIQUE INDEX IF NOT EXISTS note_message_owner ON notes(owner_id,origin_message_id) WHERE origin_message_id IS NOT NULL AND deleted=0;
+CREATE TABLE IF NOT EXISTS note_materials(note_id TEXT NOT NULL REFERENCES notes(id),revision INTEGER NOT NULL,snapshot_id TEXT NOT NULL REFERENCES snapshots(id),PRIMARY KEY(note_id,revision));

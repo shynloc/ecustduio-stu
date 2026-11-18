@@ -1,0 +1,15 @@
+{
+  "project": "HTML Creator Studio Video Ready Pilot",
+  "source_type": "product_description",
+  "source_files": ["HTML-Creator-Studio-v1.2/SKILL.md", "HTML-Creator-Studio-v1.2/START-HERE.md"],
+  "personal_documents_used": false,
+  "source_mapping": {
+    "S01": "项目定位：将文档转化为高质量互动网站",
+    "S02": "第一阶段：文档理解、信息结构与内容可视化",
+    "S03": "第二/三阶段：艺术方向、字体、配色与分镜",
+    "S04": "技术与设计扩展提案：帧可寻址动画时间轴",
+    "S05": "第七阶段：精确定位、局部修改和验证",
+    "S06": "新增 Video Ready：视觉母版到网页/视频交接"
+  },
+  "usage": "仅供技术演示，非真实客户成果或商用业绩。"
+}

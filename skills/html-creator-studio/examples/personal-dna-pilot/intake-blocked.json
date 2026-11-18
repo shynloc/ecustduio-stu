@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.8",
+  "session_id": "fictional-uploading",
+  "upload_state": "collecting",
+  "analysis_request": "pending",
+  "analysis_user_evidence": "",
+  "references": [
+    {"id": "photo-001", "kind": "vehicle", "source_kind": "actual_image", "vision_state": "unverified", "vision_evidence": "", "attitude": "partial", "liked_aspects": ["material"], "disliked_aspects": ["palette"], "note": "虚构参考：未上传真实图片", "private": true, "analysis_permission": true, "external_transfer_permission": false}
+  ]
+}

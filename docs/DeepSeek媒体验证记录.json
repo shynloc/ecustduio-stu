@@ -1,0 +1,86 @@
+{
+  "version": "0.4.0",
+  "startedAt": "2026-11-14T07:50:01.968Z",
+  "fixtures": "synthetic only; no business documents",
+  "checks": [
+    {
+      "action": "tts",
+      "ok": true,
+      "characters": 26,
+      "preview": "这是一段工作台功能测试录音。请核对资料，再开始创作。",
+      "durationMs": 5240,
+      "warnings": [],
+      "usage": null
+    },
+    {
+      "action": "asr",
+      "ok": true,
+      "characters": 39,
+      "preview": "[00:00—00:05]\n这是一段工作台功能测试录音，请核对资料再开始创作。",
+      "durationMs": 5240,
+      "warnings": [
+        "时间标记是分段范围，不是逐字时间戳。人名、数字和专有名词请对照录音校正。"
+      ],
+      "usage": null
+    },
+    {
+      "action": "vision",
+      "ok": true,
+      "characters": 112,
+      "preview": "可见原文如下：\n\n- EcuStudio synthetic test\n- Reading workshop: 12 participants\n- Date: 2026-11-14\n\n提取的数字：12、2026-11-14。",
+      "warnings": [
+        "图像分析可能包含推断，请核验图表数值和文字；动态图仅分析首帧。"
+      ],
+      "usage": {
+        "inputTokens": 273,
+        "outputTokens": 41,
+        "cacheHitTokens": 0,
+        "cacheMissTokens": 273,
+        "reasoningTokens": 0,
+        "safetyTokens": 0,
+        "webSearches": 0,
+        "webFetches": 0,
+        "imageSearches": 0,
+        "cost": null
+      }
+    },
+    {
+      "action": "ocr",
+      "ok": true,
+      "characters": 83,
+      "preview": "第 1 页\nEcuStudio synthetic test\n\nReading workshop: 12 participants\n\nDate: 2026-11-14",
+      "pageCount": 1,
+      "warnings": [
+        "OCR文字未经核验，日期、数字、表格顺序请对照原文件。原始记录保留页码和坐标标记。"
+      ],
+      "usage": {
+        "input_tokens": 113,
+        "output_tokens": 23,
+        "total_tokens": 136
+      }
+    },
+    {
+      "action": "document",
+      "ok": true,
+      "characters": 248,
+      "preview": "可见原文提取如下：\n\n- **标题**：EcuStudio synthetic test document\n- **正文**：A reading workshop has 12 participants. Test date: 2026-11-14. This is fictitious data, not an education policy.\n\n其中数字：**12**、**2026-11-14**。\n\n说明：以上仅为该测试文件的可见文字摘录，并非完整原文或已核验政策；文件自称虚构数据。",
+      "warnings": [
+        "此结果是基于文件的AI整理，不是原文逐字副本。需要识别全文时请选择云端文字识别；原文件保留在工作台。"
+      ],
+      "usage": {
+        "inputTokens": 150,
+        "outputTokens": 93,
+        "cacheHitTokens": 0,
+        "cacheMissTokens": 150,
+        "reasoningTokens": 0,
+        "safetyTokens": 0,
+        "webSearches": 0,
+        "webFetches": 0,
+        "imageSearches": 0,
+        "cost": null
+      }
+    }
+  ],
+  "finishedAt": "2026-11-14T07:50:22.612Z",
+  "ok": true
+}

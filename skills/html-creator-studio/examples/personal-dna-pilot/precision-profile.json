@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.8",
+  "profile_id": "fictional-precision",
+  "label": "Fictional Precision / Industrial",
+  "scope": "personal",
+  "revision": 1,
+  "status": "confirmed",
+  "fictional_fixture": true,
+  "source_refs": [
+    {"id": "text-001", "kind": "user_text", "private": true, "description": "虚构测试者明确说喜欢哑光深色、暖橙强调与结构化分栏。"}
+  ],
+  "signals": [
+    {"id": "prec-palette", "dimension": "palette", "value": "深色工业基底配少量暖橙强调", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-001"], "user_evidence": "虚构测试输入：我喜欢深黑配少量暖橙。", "design_application": "高对比深色基底、少量暖色作为信息焦点"},
+    {"id": "prec-layout", "dimension": "layout", "value": "喜欢有秩序的非对称分屏", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-001"], "user_evidence": "虚构测试输入：我喜欢非对称但规整的分屏。", "design_application": "分屏与精确网格结合，核心内容具有视觉重心"},
+    {"id": "prec-material", "dimension": "material", "value": "偏好哑光和金属线性细节", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-001"], "user_evidence": "虚构测试输入：我喜欢哑光金属质感。", "design_application": "只在与内容有关时使用金属材质暗示，避免伪 3D 堆叠"}
+  ],
+  "design_tokens": {"background": "#151615", "surface": "#222524", "foreground": "#F5F3ED", "muted": "#C7C7C3", "accent": "#F26A32", "font_stack": "Arial, system-ui, sans-serif", "radius_px": 2, "motion": "subtle", "composition": "split"},
+  "identity_rules": {"must_keep": ["结构精密", "少量暖橙强调"], "avoid": ["蓝紫渐变", "无意义玻璃卡片"]},
+  "approval": {"state": "confirmed", "revision": 1, "user_evidence": "这是虚构用户的测试确认，不能用于真实项目批准。"},
+  "history": [{"revision": 1, "action": "created", "note": "FICTIONAL TEST FIXTURE"}]
+}

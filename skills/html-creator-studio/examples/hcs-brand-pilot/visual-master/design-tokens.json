@@ -1,0 +1,42 @@
+{
+  "project": "HCS Video Ready Pilot",
+  "version": "1.3-preview",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "durationFrames": 1080,
+    "durationSeconds": 36
+  },
+  "colors": {
+    "paper": "#F5F4EF",
+    "paper_ink": "#151A25",
+    "night": "#091321",
+    "cobalt": "#2855FF",
+    "ice": "#8AABFF",
+    "orange": "#F07A50",
+    "muted": "#8B96A9",
+    "line_on_paper": "#D5D9E2",
+    "line_on_night": "#30425F"
+  },
+  "typography": {
+    "latin": "Arial, Helvetica, sans-serif",
+    "cjk": "Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif",
+    "headline_weight": 800,
+    "headline_tracking_em": -0.07,
+    "body_weight": 400
+  },
+  "motion": {
+    "type": "frame_seekable",
+    "time_source": "frame / fps",
+    "default_easing": "easeOutCubic",
+    "no_realtime_state": true,
+    "entrance_seconds": 0.8,
+    "transition_overlap_seconds": 0.6
+  },
+  "approvals": {
+    "design_status": "pilot-preview-unapproved",
+    "video_engine": "Chromium-FFmpeg proof; Hyperframes bridge pending external CLI",
+    "public_deployment": false
+  }
+}

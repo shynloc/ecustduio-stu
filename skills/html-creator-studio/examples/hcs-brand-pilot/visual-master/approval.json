@@ -1,0 +1,21 @@
+{
+  "status": "prototype_unapproved",
+  "user_approved_visual_master": false,
+  "approved_at": null,
+  "approved_by": null,
+  "public_deployment_approved": false,
+  "notes": "本项目为技术验证样片，任何正式宣传使用前需确认视觉与文案。",
+  "copy_approval": {
+    "status": "prototype_placeholder",
+    "version": "demo-prototype-v1",
+    "sha256": null,
+    "language": "zh-CN",
+    "scope": [
+      "website_headlines",
+      "video_on_screen_copy"
+    ],
+    "approved_at": null,
+    "approved_by": null,
+    "evidence_note": "本示例为未批准的脱敏技术演示；不得用于正式发布。真实用户项目需逐稿确认。"
+  }
+}

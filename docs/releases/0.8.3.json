@@ -1,0 +1,7 @@
+[
+  "Mac 凭据保存区分钥匙串锁定、授权拒绝、超时与文件权限错误，不再统一返回 INTERNAL_ERROR",
+  "保存密钥增加等待状态、防重复提交、写后读取校验，失败保留输入并留在设置页",
+  "新增本机凭据存储检查，以及 Mac 隐藏输入的 Configure-DeepSeek.command 和 Check-Keychain.command",
+  "凭据标记异常不再拖垮整个工作台状态；网页加载错误显示恢复页面",
+  "沿用原账号、资料与 DeepSeek 配置；保留 Mac Repair-Upgrade.command 修复升级入口"
+]

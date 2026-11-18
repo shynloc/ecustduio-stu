@@ -1,0 +1,22 @@
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {chromium,expect} from 'playwright/test';
+import assert from 'node:assert/strict';
+const out='test-results/accounts-production';mkdirSync(out,{recursive:true});
+const before=JSON.parse(readFileSync('test-results/accounts-upgrade-before.json','utf8'));
+const db=new DatabaseSync('../data/app.sqlite',{readOnly:true});
+const ids=(table:string)=>db.prepare(`SELECT id FROM ${table} ORDER BY id`).all().map((r:any)=>r.id);
+assert.deepEqual(ids('snapshots'),before.snapshots);assert.deepEqual(ids('projects'),before.projects);
+assert.ok(db.prepare('SELECT 1 FROM migrations WHERE version=2').get());
+const settings=JSON.parse((db.prepare('SELECT body FROM settings WHERE id=1').get() as any).body);
+assert.equal(settings.scheduleEnabled,before.scheduleEnabled);assert.equal(settings.theme,before.theme);
+assert.equal(createHash('sha256').update(readFileSync('../data/secrets.dpapi')).digest('hex'),before.encryptedCredentialHash);
+assert.equal((db.prepare('SELECT count(*) n FROM users').get() as any).n,0);db.close();
+const base='http://127.0.0.1:37891',session=await fetch(base+'/api/session'),body=await session.json() as any;
+assert.equal(body.setupRequired,true);assert.equal(body.user,null);const cookie=session.headers.get('set-cookie')!.split(';')[0];
+assert.equal((await fetch(base+'/api/state',{headers:{cookie}})).status,401);
+assert.equal((await fetch(base+'/api/auth/users',{headers:{cookie}})).status,401);
+const browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+try{await page.goto(base);await page.getByRole('heading',{name:'创建管理员',exact:true}).waitFor();await expect(page.getByLabel('密码（至少10位）',{exact:true})).toHaveAttribute('type','password');await page.screenshot({path:out+'/login-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:out+'/login-mobile.png',fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));assert.deepEqual(errors,[]);}finally{await browser.close();}
+writeFileSync(out+'/result.json',JSON.stringify({status:'passed',checkedAt:new Date().toISOString(),backupId:before.backupId,existingSnapshotsPreserved:true,existingProjectsPreserved:true,encryptedCredentialsUnchanged:true,migration:2,defaultTheme:'scholar',scheduleEnabled:settings.scheduleEnabled,firstAdministratorSetup:true,noProductionTestAccounts:true,anonymousDataAccessDenied:true,desktopAndMobileLogin:true,browserErrors:errors},null,2));console.log('Production upgrade and first-administrator login verified; original data preserved.');

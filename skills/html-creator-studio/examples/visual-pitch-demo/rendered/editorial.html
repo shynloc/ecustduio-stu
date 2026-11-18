@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>HTML 创意工坊 · 视觉提案</title><style>
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}body{margin:0;min-width:0;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button,a{font:inherit}a{text-decoration:none;color:inherit}button{cursor:pointer}
+:focus-visible{outline:3px solid currentColor;outline-offset:5px}
+.pitch-watermark{position:absolute;top:72px;right:14px;z-index:20;padding:8px 10px;background:#fff;color:#292929;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.09em;box-shadow:0 2px 12px #0001;max-width:170px;text-align:center;border:1px solid #ccc}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+:root{--paper:#F3F0E8;--ink:#1E2927;--rust:#BB5E42}body{background:var(--paper);color:var(--ink);font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif}
+.page{min-height:100svh;max-width:1600px;margin:auto;padding:32px clamp(22px,5vw,92px) 80px}
+.topline{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1E292748;padding:0 0 20px;font:600 12px/1.4 ui-monospace,monospace;letter-spacing:.16em}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:4vw;min-height:75vh;align-items:center;position:relative}
+.kicker,.seq{font:700 11px/1.5 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--rust)}
+h1{font:500 clamp(50px,7.5vw,137px)/.98 Georgia,"Noto Serif CJK SC","Songti SC",serif;letter-spacing:-.068em;margin:24px 0 28px;overflow-wrap:anywhere}
+.lead{font-size:clamp(16px,1.5vw,22px);line-height:1.9;max-width:33em}
+.hero .bottom{display:flex;align-items:center;gap:20px;margin-top:40px;font:600 12px ui-monospace,monospace}
+.marker{width:40px;height:1px;background:var(--rust)}.paper-art{position:relative;aspect-ratio:4/5;width:min(100%,520px);margin:auto;isolation:isolate}
+.paper-art svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(22px 25px 20px #1b2e261c);animation:float 9s ease-in-out infinite}
+.paper-art .art-label{position:absolute;bottom:12%;left:-5%;font:11px ui-monospace,monospace;letter-spacing:.14em;transform:rotate(-90deg);transform-origin:left bottom}
+@keyframes float{50%{transform:translateY(-13px) rotate(1deg)}}
+.details{border-top:3px solid var(--ink);margin-top:4vw;display:grid;grid-template-columns:minmax(160px,.8fr) minmax(0,2.1fr);gap:8vw;padding-top:32px}
+.details-intro{position:sticky;top:35px;align-self:start}.details-intro h2{font:500 clamp(30px,4vw,60px)/1.12 Georgia,"Songti SC",serif;margin:18px 0}
+.detail-item{padding:0 0 34px;margin-bottom:32px;border-bottom:1px solid #1e29272a;display:grid;grid-template-columns:100px 1fr 1.4fr;gap:16px;align-items:baseline}
+.detail-item h3{font-size:clamp(18px,1.8vw,26px);letter-spacing:-.03em;margin:0}.detail-item p{font-size:15px;line-height:1.9;margin:0;color:#4D5651}
+@media(max-width:760px){.page{padding:24px 22px 55px}.topline{font-size:10px}.hero{grid-template-columns:1fr;gap:10px;min-height:auto;padding-top:60px}h1{font-size:clamp(54px,13vw,90px)}.paper-art{width:min(78%,400px);aspect-ratio:1/1}.details{display:block}.details-intro{position:static;margin-bottom:32px}.detail-item{grid-template-columns:54px 1fr;gap:8px}.detail-item p{grid-column:2}}
+</style></head><body><div class="pitch-watermark">视觉提案 · 非正式成品<br>文案待用户审批</div><main class="page">
+<header class="topline"><span>HTML 创意工坊 / STUDY 01</span><span>THE EDITORIAL APPROACH ↗</span></header>
+<section class="hero" id="hero"><div><div class="kicker">01 — FROM SOURCE TO EXPERIENCE</div><h1>让内容，成为体验。</h1><p class="lead">先理解资料，再决定它应该如何被看见。将创意方向、版式、动态与视频分镜放进同一套可修改的设计流程。</p><div class="bottom"><span class="marker"></span>SCROLL TO EXPLORE / 001</div></div>
+<div class="paper-art" aria-label="抽象纸面折叠装置"><svg viewBox="0 0 420 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="原创折页图形"><rect x="45" y="90" width="315" height="375" fill="#DFD7C6"/><path d="M45 90L285 45L358 465L115 415L45 90Z" fill="#B8CBBF" stroke="#1E2927" stroke-width="1.5"/><path d="M122 102L285 45L358 465L122 102Z" fill="#D9DECC"/><path d="M122 102L85 415L358 465L122 102Z" fill="#BB5E42"/><path d="M122 102L285 45L85 415" stroke="#1E2927" stroke-width="1"/><path d="M65 472H375M65 486H300M65 500H260" stroke="#1E2927" stroke-width="1" opacity=".5"/><circle cx="323" cy="118" r="24" stroke="#1E2927" stroke-width="1.4"/><path d="M307 118H339M323 102V134" stroke="#1E2927"/></svg><span class="art-label">STUDY OF FORM / MATERIAL 01</span></div></section>
+<section class="details" id="details"><div class="details-intro"><span class="kicker">INFORMATION ARCHITECTURE / 02</span><h2>重要的内容，<br>值得被看见。</h2><p style="line-height:1.75;color:#65716a">这是信息密集页的排版试样，展示层级和阅读节奏。</p></div><div><article class="detail-item"><span class="seq">01 / CONTENT</span><h3>从资料到结构</h3><p>整理标题、关系、时序与数据，为每一幕确定清晰的传播目的。</p></article>
+<article class="detail-item"><span class="seq">02 / CONTENT</span><h3>在开发前看见设计</h3><p>以实际 HTML 首屏和高密度内容样稿比较不同布局与动效，再确认艺术方向。</p></article>
+<article class="detail-item"><span class="seq">03 / CONTENT</span><h3>在画面中精准改稿</h3><p>定位文字、图形和动画对象，保留每次修改的依据与最小改动范围。</p></article>
+<article class="detail-item"><span class="seq">04 / CONTENT</span><h3>一套母版，多种输出</h3><p>相同的内容和视觉规范可以服务交互网页、横版视频与竖版视频。</p></article></div></section>
+</main></body></html>

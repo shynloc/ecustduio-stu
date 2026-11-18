@@ -1,0 +1,14 @@
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
+import {mkdirSync} from 'node:fs';
+const root=fileURLToPath(new URL('..',import.meta.url));process.chdir(root);
+const [major,minor]=process.versions.node.split('.').map(Number);
+if(major!==24||minor<15)throw new Error('需要 Node.js 24.15 或更新的 24.x。Mac 可运行 bash Dev.command 自动准备。');
+const env={...process.env,ECUSTUDIO_DATA_DIR:resolve('.local-data'),PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH||resolve('.dev/browsers')};
+mkdirSync(env.ECUSTUDIO_DATA_DIR,{recursive:true});
+const install=spawnSync(process.execPath,['node_modules/playwright/cli.js','install','chromium','--only-shell'],{cwd:root,env,stdio:'inherit',windowsHide:true});
+if(install.status!==0)process.exit(install.status||1);
+const diagnostic=spawnSync(process.execPath,['scripts/diagnose-runtime.mjs'],{cwd:root,env,stdio:'inherit',windowsHide:true});
+if(diagnostic.status!==0)process.exit(diagnostic.status||1);
+console.log('开发环境准备完成。运行 npm run dev；开发数据独立保存在 .local-data。');

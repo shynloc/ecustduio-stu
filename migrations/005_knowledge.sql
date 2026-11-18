@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS note_documents(note_id TEXT PRIMARY KEY REFERENCES notes(id),revision INTEGER NOT NULL,schema_version INTEGER NOT NULL DEFAULT 1,document_json TEXT);
+CREATE TABLE IF NOT EXISTS note_categories(note_id TEXT PRIMARY KEY REFERENCES notes(id),folder TEXT NOT NULL DEFAULT '',tags TEXT NOT NULL DEFAULT '[]',purposes TEXT NOT NULL DEFAULT '[]',state TEXT NOT NULL DEFAULT 'inbox');
+CREATE TABLE IF NOT EXISTS note_history(note_id TEXT NOT NULL REFERENCES notes(id),revision INTEGER NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,sources TEXT NOT NULL,document_json TEXT,created_at TEXT NOT NULL,PRIMARY KEY(note_id,revision));

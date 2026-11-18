@@ -1,0 +1,26 @@
+{
+  "name": "hcs-visual-master-remotion",
+  "version": "1.4.0",
+  "private": true,
+  "description": "HTML Creator Studio Visual Master -> Remotion Compositions",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "compositions": "remotion compositions src/index.ts",
+    "still:landscape": "remotion still src/index.ts HCS-Landscape out/landscape.png --frame=60",
+    "still:portrait": "remotion still src/index.ts HCS-Portrait out/portrait.png --frame=60",
+    "render:landscape": "remotion render src/index.ts HCS-Landscape out/landscape.mp4 --codec=h264",
+    "render:portrait": "remotion render src/index.ts HCS-Portrait out/portrait.mp4 --codec=h264",
+    "check:source": "node scripts/check_source.mjs"
+  },
+  "dependencies": {
+    "remotion": "4.0.536",
+    "@remotion/cli": "4.0.536",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "project": "hcs-public-visual-pitch",
+  "assets": [
+    {"id":"paper-fold-study","scene_id":"pitch-editorial","purpose":"把纸面内容转化为动态视觉母版的折叠隐喻","origin":"original-svg","status":"ready","source_or_license":"Skill 生成器中的原创 SVG","fallback":"无动画静态 SVG","alt_text":"原创折页形状表示从内容到视觉结构","editable":"svg","external_transfer_approved":false},
+    {"id":"signal-orbit-study","scene_id":"pitch-signal","purpose":"表示章节之间可追踪的时间/空间关系","origin":"original-svg","status":"ready","source_or_license":"Skill 生成器中的原创 SVG","fallback":"无动画静态椭圆轨道","alt_text":"交错线条围绕中心构成信息轨道","editable":"svg","external_transfer_approved":false},
+    {"id":"type-collision-study","scene_id":"pitch-collision","purpose":"演示印刷式拼贴及动感排印","origin":"original-css","status":"ready","source_or_license":"Skill 生成器中原创 CSS 形状","fallback":"静态图形和大字号标题","alt_text":"蓝色圆形与红色斜置矩形构成版式装置","editable":"css","external_transfer_approved":false}
+  ]
+}

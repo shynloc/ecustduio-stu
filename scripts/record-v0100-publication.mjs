@@ -1,0 +1,11 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {fetchRelease} from './update-protocol.mjs';
+const out='D:/EduStudio/deliverables/0.10.0',read=p=>JSON.parse(readFileSync(p,'utf8'));
+const online=read('test-results/online-update-v0100-result.json'),packages=read(out+'/public-package-verification.json'),ui=read('test-results/wechat-ui/result.json'),local=read('test-results/v0100-local-deployment.json');
+assert.ok(online.ok&&packages.ok&&ui.ok&&local.ok);
+const live=await fetchRelease();assert.equal(live.release.version,'0.10.0');assert.deepEqual(live.envelope,read(out+'/stable.json'));
+const result={product:'EcuStudio教创工作台',version:'0.10.0',publishedAt:new Date().toISOString(),ok:true,stableFeed:'https://dshdisk.acks.com.cn/ecustudio/releases/stable.json',packages:packages.records.map(({destination,...p})=>p),old050SignatureCompatible:packages.old050SignatureCompatible,directedAndRegressionTests:35,updateProtocolTests:4,macStopContractTests:7,browser:ui,onlineUpgrade:{fixture:online.fixture,checks:online.checks,ok:true},localDeployment:local,privateBusinessDataIncluded:false,realWechat:{executed:false,reason:'User requested package delivery first; native credentials unavailable; connected WeChat plugin requires reauthentication. HTTP fixture success is not a real remote draft.'},macNativeExecuted:false,limitations:['The public-account owner must connect AppID/AppSecret locally with draft and material API permissions; this is direct official API integration, not third-party-platform QR authorization','Real WeChat formatting and permissions need verification after connecting a live account','Mac native Keychain, Safari, LaunchAgent and installation/upgrade still require Mac execution','Uncertain saves inspect at most 100 recent drafts; ambiguity requires user confirmation, never an automatic duplicate save']};
+writeFileSync(out+'/EcuStudio-0.10.0-Acceptance.json',JSON.stringify(result,null,2));
+writeFileSync('test-results/v0100-publication.json',JSON.stringify({version:'0.10.0',publishedAt:result.publishedAt,ok:true,onlineUpgrade:true,packagesVerified:true,realWechatExecuted:false,macNativeExecuted:false},null,2));
+console.log(JSON.stringify({version:'0.10.0',published:true,onlineUpgrade:true,originalDataPreserved:true,realWechatExecuted:false,macNativeExecuted:false}));

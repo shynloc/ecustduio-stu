@@ -1,0 +1,10 @@
+import {chromium} from 'playwright';
+import {writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+const base='C:/Users/jintaothom/Documents/Codex/2026-11-08/new-chat/outputs/EcuStudio主题方案';
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try{const page=await browser.newPage({viewport:{width:1440,height:1150}}),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(pathToFileURL(base+'/曜石主题交互预览.html').href);await page.getByRole('heading',{name:'今日工作台',exact:true}).waitFor();await page.emulateMedia({reducedMotion:'reduce'});await page.screenshot({path:base+'/曜石主题桌面预览.png',fullPage:true});
+await page.getByRole('button',{name:'体验证据链 →',exact:true}).click();await page.waitForFunction(()=>document.getElementById('step')?.textContent==='04 / 04');await page.getByRole('button',{name:'重置预览',exact:true}).click();assert.equal(await page.locator('#step').textContent(),'01 / 04');
+await page.locator('[data-node="1"]').click();assert.ok((await page.locator('#detail-title').textContent())?.includes('事实先核验'));await page.getByRole('button',{name:'对照暖白配色 ↗'}).click();assert.equal(await page.locator('html').getAttribute('data-mode'),'scholar');await page.screenshot({path:base+'/配色对照预览.png',fullPage:true});await page.getByRole('button',{name:'返回曜石配色 ↗'}).click();await page.getByRole('button',{name:'设计说明 ↗'}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
+await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'重置预览',exact:true}).click();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'horizontal overflow');await page.screenshot({path:base+'/曜石主题手机预览.png',fullPage:true});assert.deepEqual(errors,[]);writeFileSync(base+'/预览验证.json',JSON.stringify({desktop:'1440x1150',mobile:'390x844',browserErrors:errors,checks:['evidence-chain','node-inspection','reset','palette-comparison','dialog-keyboard','reduced-motion','mobile-overflow'],status:'passed'},null,2));console.log('Theme preview checks passed.');}finally{await browser.close()}

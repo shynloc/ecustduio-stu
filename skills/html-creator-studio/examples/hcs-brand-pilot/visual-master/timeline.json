@@ -1,0 +1,495 @@
+{
+  "name": "HCS Video Ready Pilot",
+  "fps": 30,
+  "durationFrames": 1080,
+  "tracks": [
+    {
+      "scene": "S01",
+      "element": "intro.title",
+      "startFrame": 0,
+      "endFrame": 179,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 8,
+        "endFrame": 39,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 92,
+          "scale": 0.95
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S01",
+      "element": "intro.orbit",
+      "startFrame": 0,
+      "endFrame": 179,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 8,
+        "endFrame": 92,
+        "easing": "easeOutCubic",
+        "from": {
+          "rotateDeg": -35,
+          "scale": 0.85
+        },
+        "to": {
+          "rotateDeg": 61,
+          "scale": 1.03
+        }
+      }
+    },
+    {
+      "scene": "S01",
+      "element": "intro.subtitle",
+      "startFrame": 0,
+      "endFrame": 179,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 27,
+        "endFrame": 51,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 45
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0
+        }
+      }
+    },
+    {
+      "scene": "S02",
+      "element": "decode.paper",
+      "startFrame": 180,
+      "endFrame": 359,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 192,
+        "endFrame": 225,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateX": -125,
+          "translateY": 40,
+          "rotateDeg": -8
+        },
+        "to": {
+          "opacity": 1,
+          "translateX": 0,
+          "translateY": 0,
+          "rotateDeg": 0
+        }
+      }
+    },
+    {
+      "scene": "S02",
+      "element": "decode.modules",
+      "startFrame": 180,
+      "endFrame": 359,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 219,
+        "endFrame": 249,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateX": 135,
+          "scale": 0.92
+        },
+        "to": {
+          "opacity": 1,
+          "translateX": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S02",
+      "element": "decode.path",
+      "startFrame": 180,
+      "endFrame": 359,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 214,
+        "endFrame": 270,
+        "easing": "easeOutCubic",
+        "from": {
+          "strokeDashProgress": 0
+        },
+        "to": {
+          "strokeDashProgress": 1
+        }
+      }
+    },
+    {
+      "scene": "S03",
+      "element": "director.title",
+      "startFrame": 360,
+      "endFrame": 539,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 367,
+        "endFrame": 397,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 82
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0
+        }
+      }
+    },
+    {
+      "scene": "S03",
+      "element": "director.cards",
+      "startFrame": 360,
+      "endFrame": 539,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 381,
+        "endFrame": 438,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 95
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0
+        }
+      }
+    },
+    {
+      "scene": "S03",
+      "element": "director.palette",
+      "startFrame": 360,
+      "endFrame": 539,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 411,
+        "endFrame": 438,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 29
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0
+        }
+      }
+    },
+    {
+      "scene": "S04",
+      "element": "motion.title",
+      "startFrame": 540,
+      "endFrame": 719,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 545,
+        "endFrame": 573,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 68
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0
+        }
+      }
+    },
+    {
+      "scene": "S04",
+      "element": "motion.timeline",
+      "startFrame": 540,
+      "endFrame": 719,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 567,
+        "endFrame": 592,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 95,
+          "scale": 0.97
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S04",
+      "element": "motion.playhead",
+      "startFrame": 540,
+      "endFrame": 719,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 567,
+        "endFrame": 708,
+        "easing": "linear",
+        "from": {
+          "progress": 0
+        },
+        "to": {
+          "progress": 1
+        }
+      }
+    },
+    {
+      "scene": "S05",
+      "element": "edit.canvas",
+      "startFrame": 720,
+      "endFrame": 899,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 740,
+        "endFrame": 766,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 90,
+          "scale": 0.96
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S05",
+      "element": "edit.box",
+      "startFrame": 720,
+      "endFrame": 899,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 810,
+        "endFrame": 860,
+        "easing": "easeOutCubic",
+        "from": {
+          "translateX": 0,
+          "scale": 1
+        },
+        "to": {
+          "translateX": 24,
+          "scale": 0.955
+        }
+      }
+    },
+    {
+      "scene": "S05",
+      "element": "edit.controls",
+      "startFrame": 720,
+      "endFrame": 899,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 756,
+        "endFrame": 778,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateX": 100
+        },
+        "to": {
+          "opacity": 1,
+          "translateX": 0
+        }
+      }
+    },
+    {
+      "scene": "S06",
+      "element": "output.html",
+      "startFrame": 900,
+      "endFrame": 1079,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 930,
+        "endFrame": 963,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 90,
+          "scale": 0.93
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S06",
+      "element": "output.film",
+      "startFrame": 900,
+      "endFrame": 1079,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 951,
+        "endFrame": 984,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 90,
+          "scale": 0.93
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "scene": "S06",
+      "element": "output.arrow",
+      "startFrame": 900,
+      "endFrame": 1079,
+      "drivenBy": "frame",
+      "editable": true,
+      "animation": {
+        "startFrame": 940,
+        "endFrame": 974,
+        "easing": "easeOutCubic",
+        "from": {
+          "opacity": 0,
+          "translateY": 90,
+          "scale": 0.93
+        },
+        "to": {
+          "opacity": 1,
+          "translateY": 0,
+          "scale": 1
+        }
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "S01",
+      "startFrame": 0,
+      "endFrame": 179,
+      "startSeconds": 0,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "paper",
+      "elements": [
+        "intro.title",
+        "intro.orbit",
+        "intro.subtitle"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    },
+    {
+      "id": "S02",
+      "startFrame": 180,
+      "endFrame": 359,
+      "startSeconds": 6,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "paper",
+      "elements": [
+        "decode.paper",
+        "decode.modules",
+        "decode.path"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    },
+    {
+      "id": "S03",
+      "startFrame": 360,
+      "endFrame": 539,
+      "startSeconds": 12,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "night",
+      "elements": [
+        "director.title",
+        "director.cards",
+        "director.palette"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    },
+    {
+      "id": "S04",
+      "startFrame": 540,
+      "endFrame": 719,
+      "startSeconds": 18,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "night",
+      "elements": [
+        "motion.title",
+        "motion.timeline",
+        "motion.playhead"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    },
+    {
+      "id": "S05",
+      "startFrame": 720,
+      "endFrame": 899,
+      "startSeconds": 24,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "paper",
+      "elements": [
+        "edit.canvas",
+        "edit.box",
+        "edit.controls"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    },
+    {
+      "id": "S06",
+      "startFrame": 900,
+      "endFrame": 1079,
+      "startSeconds": 30,
+      "durationSeconds": 6,
+      "camera": "fixed-2d-depth",
+      "visualMode": "night",
+      "elements": [
+        "output.html",
+        "output.film",
+        "output.arrow"
+      ],
+      "exit": "6-12-frame-opacity-and-translation-crossfade"
+    }
+  ],
+  "schema": "hcs-video-ready/timeline-v0.1",
+  "authoritative_renderer": "shared/frame-styles.mjs::frameCSS(frame,timeline,storyboard,tokens,preset); browser renderAtFrame is only a preview entrypoint",
+  "keyframe_interpolation": "timeline.tracks from/to/easing in shared frame-styles.mjs; extraCssHcs() adds documented pilot-specific frame-driven secondary choreography",
+  "adapter_caveat": "This metadata is not sufficient alone to reproduce complex DOM effects; use executable renderer for exact visual parity."
+}

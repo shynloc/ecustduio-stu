@@ -1,0 +1,2 @@
+// Only remove an exact, sufficiently long suffix/prefix overlap. Ambiguous text stays visible.
+export function joinRegions(parts:string[]){let text=parts[0]||'',removed=0;for(const next of parts.slice(1)){let overlap=0;for(let n=Math.min(text.length,next.length,4000);n>=24;n--)if(text.slice(-n)===next.slice(0,n)){overlap=n;break;}text+='\n'+next.slice(overlap);removed+=overlap;}return {text,removed};}

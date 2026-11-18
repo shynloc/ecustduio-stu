@@ -1,0 +1,50 @@
+name: Windows and macOS development
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: .dev/browsers
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run dev:setup
+      - run: npm run check
+      - run: npm run build
+      - run: npm run test:core
+      - run: npm run test:dev
+      - run: npm run test:ui
+      - name: Mac bootstrap syntax
+        if: runner.os == 'macOS'
+        run: bash -n Dev.command scripts/mac-dev.sh deployment/macos/*.command deployment/macos/*.sh
+      - name: Clean source packaging
+        if: runner.os == 'macOS'
+        run: |
+          python3 scripts/package-macos.py .artifacts/macos
+          python3 scripts/package-online.py .artifacts/windows
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: browser-checks-${{ runner.os }}
+          path: |
+            test-results/pipeline-ui/
+            test-results/wechat-ui/
+          retention-days: 7

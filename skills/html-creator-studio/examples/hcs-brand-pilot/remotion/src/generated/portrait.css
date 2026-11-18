@@ -1,0 +1,51 @@
+/* 1080 x 1920: a purpose-composed portrait layout, not a cropped 16:9 image. */
+.hcs-portrait .stage{width:1080px!important;height:1920px!important}
+.hcs-portrait .thin-top{left:74px;right:74px;top:115px;font-size:13px;letter-spacing:2px}
+.hcs-portrait .overlay-brand{left:45px;top:45px}
+.hcs-portrait .stage-counter{right:48px;bottom:60px}
+.hcs-portrait .intro-eyebrow{left:75px;top:335px;font-size:18px;letter-spacing:4px}
+.hcs-portrait .intro-title{left:66px;top:435px;font-size:113px;letter-spacing:-7px}
+.hcs-portrait .intro-underline{left:75px;top:750px;width:820px}
+.hcs-portrait .intro-caption{left:77px;top:845px;font-size:37px}
+.hcs-portrait .intro-caption small{font-size:14px;letter-spacing:2px}
+.hcs-portrait .intro-rings{left:320px;top:1100px;width:530px;height:530px}
+.hcs-portrait .s0-number{left:80px;bottom:86px}
+/* 02 */
+.hcs-portrait .s1-title{left:78px;top:292px;width:920px;font-size:71px;line-height:1.18}
+.hcs-portrait .s1-title span{margin-left:0;display:block}
+.hcs-portrait .document-stack{left:145px;top:680px}
+.hcs-portrait .convert-connector{left:368px;top:1150px}
+.hcs-portrait .visual-modules{left:120px;top:1350px;width:850px;height:340px;grid-template-columns:1fr 1fr;grid-template-rows:50% 50%;gap:14px}
+.hcs-portrait .visual-modules>div{padding:18px 22px}
+.hcs-portrait .s1-bottom{left:85px;bottom:97px;font-size:14px;letter-spacing:2px}
+/* 03 */
+.hcs-portrait .direction-kicker{left:75px!important;top:318px!important}
+.hcs-portrait .direction-head{left:72px;top:405px;font-size:110px;letter-spacing:-6px}
+.hcs-portrait .art-cards{left:90px;right:90px;top:760px;height:920px;display:grid;grid-template-columns:1fr;grid-template-rows:repeat(3,1fr);gap:24px}
+.hcs-portrait .art-card{padding:25px 34px}
+.hcs-portrait .art-card .aa{font-size:115px!important}
+.hcs-portrait .direction-footer{left:88px;right:88px;bottom:100px;font-size:14px;line-height:2.1;letter-spacing:1.5px}
+/* 04 */
+.hcs-portrait .motion-tag{left:84px;top:310px;font-size:16px}
+.hcs-portrait .motion-title{left:76px;top:420px;font-size:104px;letter-spacing:-6px}
+.hcs-portrait .motion-description{left:83px;top:720px;width:905px;font-size:26px;line-height:1.65}
+.hcs-portrait .timeline{left:70px;right:70px;top:900px;height:645px;padding:55px 34px}
+.hcs-portrait .time-ticks{font-size:12px!important}
+.hcs-portrait .timeline .track{margin-top:58px!important}
+.hcs-portrait .motion-sublabel{left:85px!important;bottom:160px!important;width:890px;font-size:14px!important;line-height:1.8}
+/* 05 */
+.hcs-portrait .edit-title{left:76px;top:317px;font-size:87px;line-height:1.2}
+.hcs-portrait .fake-editor{left:64px;top:650px;width:952px;height:557px}
+.hcs-portrait .fake-editor-main{height:calc(100% - 70px)}
+.hcs-portrait .selected-element{left:65px!important;top:170px!important;max-width:810px}
+.hcs-portrait .selected-element h3{font-size:55px!important}
+.hcs-portrait .fake-controls{left:127px;top:1320px;width:825px;height:360px}
+.hcs-portrait .edit-caption{left:79px!important;bottom:120px!important;font-size:23px!important}
+/* 06 */
+.hcs-portrait .outro-kicker{left:82px;top:310px;font-size:17px}
+.hcs-portrait .outro-title{left:72px;top:410px;font-size:105px;letter-spacing:-6px}
+.hcs-portrait .deliverables{left:94px;right:94px;top:860px;height:760px;display:flex;flex-direction:column;gap:22px}
+.hcs-portrait .output-card{padding:42px 48px}
+.hcs-portrait .output-junction{flex:0 0 80px!important;min-width:auto!important}
+.hcs-portrait .outro-footer{left:85px;right:85px;bottom:105px;flex-wrap:wrap;gap:14px;font-size:15px}
+.hcs-portrait .outro-footer>span:last-child{margin-left:0;flex-basis:100%}

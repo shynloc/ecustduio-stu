@@ -1,0 +1,18 @@
+import {spawnSync} from 'node:child_process';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {mkdirSync} from 'node:fs';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),envRoot=resolve(root,'../runtime/gif-python');
+const run=(file,args)=>spawnSync(file,args,{cwd:root,windowsHide:true,encoding:'utf8',timeout:300000});
+const candidates=process.platform==='win32'?[['py',['-3']],['python',[]]]:[['python3',[]],['/opt/homebrew/bin/python3',[]],['/usr/local/bin/python3',[]]];
+const selected=candidates.find(([file,args])=>run(file,[...args,'-c','import sys; assert sys.version_info >= (3,10)']).status===0);
+if(!selected)throw new Error('请先安装 Python 3.10+（Windows: python.org；macOS: python.org 或 brew install python），再重新安装动图依赖。');
+mkdirSync(dirname(envRoot),{recursive:true});
+const created=run(selected[0],[...selected[1],'-m','venv',envRoot]);
+if(created.status!==0)throw new Error('无法建立独立 Python 环境：'+created.stderr);
+const python=join(envRoot,process.platform==='win32'?'Scripts/python.exe':'bin/python');
+const installed=run(python,['-m','pip','install','--disable-pip-version-check','Pillow==12.3.0']);
+if(installed.status!==0)throw new Error('Pillow 安装失败：'+installed.stderr);
+const check=run(python,['-c','from PIL import Image; import PIL; print(PIL.__version__)']);
+if(check.status!==0)throw new Error('Pillow 加载失败');
+console.log(JSON.stringify({ok:true,pillow:check.stdout.trim(),python}));

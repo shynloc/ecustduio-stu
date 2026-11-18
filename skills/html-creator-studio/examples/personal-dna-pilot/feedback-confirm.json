@@ -1,0 +1,8 @@
+{
+  "scope": "long_term",
+  "user_evidence": "虚构用户：我确认这个具体的布局偏好，但这次反馈仍需重新审批档案。",
+  "confirm_signal_ids": ["prec-layout"],
+  "reject_signal_ids": [],
+  "add_signals": [],
+  "note": "FICTIONAL QA FEEDBACK"
+}

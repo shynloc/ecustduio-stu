@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.8",
+  "profile_id": "fictional-warm",
+  "label": "Fictional Warm / Natural",
+  "scope": "personal",
+  "revision": 1,
+  "status": "confirmed",
+  "fictional_fixture": true,
+  "source_refs": [{"id": "text-002", "kind": "user_text", "private": true, "description": "虚构测试者偏好温暖、自然、宽松的画册阅读。"}],
+  "signals": [
+    {"id": "warm-palette", "dimension": "palette", "value": "米白、深棕和苔绿色的低饱和组合", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-002"], "user_evidence": "虚构输入：我喜欢纸张、棕色和苔绿。", "design_application": "温暖浅底，深棕正文与低饱和绿强调"},
+    {"id": "warm-imagery", "dimension": "imagery", "value": "喜欢自然摄影与原纸触感", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-002"], "user_evidence": "虚构输入：我喜欢自然照片和纸张质地。", "design_application": "以真实授权作品为主角，辅以轻量纸张结构"},
+    {"id": "warm-layout", "dimension": "layout", "value": "宽松画册式布局", "state": "CONFIRMED", "confidence": 1, "source_ids": ["text-002"], "user_evidence": "虚构输入：不要拥挤的信息面板。", "design_application": "降低视觉密度，作品采取画册式陈列"}
+  ],
+  "design_tokens": {"background": "#F5EFE1", "surface": "#FFF9EB", "foreground": "#362F27", "muted": "#5E554A", "accent": "#4E634A", "font_stack": "Georgia, serif", "radius_px": 16, "motion": "none", "composition": "gallery"},
+  "identity_rules": {"must_keep": ["温暖自然", "保留作品呼吸空间"], "avoid": ["刺眼霓虹", "高频复杂动画"]},
+  "approval": {"state": "confirmed", "revision": 1, "user_evidence": "虚构人物的测试确认，不能作为真实用户确认。"},
+  "history": [{"revision": 1, "action": "created", "note": "FICTIONAL TEST FIXTURE"}]
+}

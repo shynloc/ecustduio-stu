@@ -1,0 +1,8 @@
+{
+  "cases": [
+    {"id":"home-desktop","path":"../index.html","width":1440,"height":900},
+    {"id":"home-mobile","path":"../index.html","width":390,"height":844},
+    {"id":"details-desktop","path":"../index.html","width":1440,"height":900,"anchor":"details"},
+    {"id":"details-mobile","path":"../index.html","width":390,"height":844,"anchor":"details"}
+  ]
+}

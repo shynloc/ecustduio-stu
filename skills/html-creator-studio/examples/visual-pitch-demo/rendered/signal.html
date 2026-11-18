@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>HTML 创意工坊 · 视觉提案</title><style>
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}body{margin:0;min-width:0;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button,a{font:inherit}a{text-decoration:none;color:inherit}button{cursor:pointer}
+:focus-visible{outline:3px solid currentColor;outline-offset:5px}
+.pitch-watermark{position:absolute;top:72px;right:14px;z-index:20;padding:8px 10px;background:#fff;color:#292929;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.09em;box-shadow:0 2px 12px #0001;max-width:170px;text-align:center;border:1px solid #ccc}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+:root{--base:#0B1320;--ink:#DFF9F7;--line:#59E1D2;--signal:#FA7756}body{color:var(--ink);background:var(--base);font-family:"Noto Sans CJK SC","Microsoft YaHei",sans-serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:72px 72px;mask-image:linear-gradient(to bottom,black,transparent);z-index:0}
+.page{isolation:isolate;position:relative;max-width:1600px;margin:auto;padding:28px clamp(22px,5vw,86px) 75px}
+.topline{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dff9f72a;padding-bottom:18px;color:#9FB8BD;font:12px ui-monospace,monospace;letter-spacing:.12em}
+.live{display:inline-flex;align-items:center;gap:9px}.live i{width:7px;height:7px;background:var(--line);border-radius:100%;box-shadow:0 0 12px var(--line)}
+.hero{position:relative;min-height:80vh;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:0}
+.eyebrow,.seq{font:11px ui-monospace,monospace;letter-spacing:.21em;color:var(--line)}h1{font:800 clamp(52px,8vw,142px)/.95 "Arial Narrow","Noto Sans CJK SC","Microsoft YaHei",sans-serif;letter-spacing:-.084em;margin:28px 0 30px;overflow-wrap:anywhere}
+.lead{color:#AEC5C9;font-size:clamp(16px,1.5vw,21px);max-width:37ch;line-height:1.7}.callout{border-left:2px solid var(--line);padding:4px 0 4px 20px;margin-top:55px;font:12px ui-monospace,monospace;color:#80A4AC;letter-spacing:.08em}
+.space-art{position:relative;aspect-ratio:1/1;min-width:0;perspective:740px;overflow:visible;display:grid;place-items:center}
+.space-art svg{width:110%;overflow:visible;filter:drop-shadow(0 0 22px #59e1d236)}.orbit{transform-origin:center;animation:spin 15s linear infinite}.orbit.reverse{animation-direction:reverse;animation-duration:21s}@keyframes spin{to{transform:rotate(360deg)}}
+.space-label{position:absolute;bottom:13%;right:8%;color:#87B5BC;font:11px ui-monospace,monospace;letter-spacing:.16em}
+.details{border-top:1px solid #6e9eac7d;padding-top:34px;display:grid;grid-template-columns:1fr 2.2fr;gap:5vw}
+.details-intro h2{font:750 clamp(34px,4vw,72px)/1 "Arial Narrow","Noto Sans CJK SC",sans-serif;letter-spacing:-.055em;margin:25px 0}.details-intro p{font-size:15px;line-height:1.8;color:#9DB6BF;max-width:260px}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}.detail-item{position:relative;min-height:210px;padding:20px 0 28px;border-top:1px solid #DFF9F741}
+.detail-item h3{font-size:clamp(20px,2vw,30px);line-height:1.2;letter-spacing:-.035em;margin:27px 0 13px}.detail-item p{font-size:14px;line-height:1.8;color:#A2B9C2;max-width:32ch}.trace{position:absolute;top:-1px;left:0;width:30%;height:1px;background:var(--line);box-shadow:0 0 11px #59e1d288}
+@media(max-width:760px){.page{padding:22px 20px 60px}.topline{font-size:10px}.hero{display:flex;flex-direction:column;align-items:stretch;padding-top:64px}h1{font-size:clamp(52px,13vw,91px)}.space-art{width:min(94%,390px);align-self:center;margin-top:25px}.details{display:block}.detail-grid{grid-template-columns:1fr}.detail-item{min-height:0}.details-intro p{max-width:none}}
+</style></head><body><div class="pitch-watermark">视觉提案 · 非正式成品<br>文案待用户审批</div><main class="page">
+<header class="topline"><span>HTML 创意工坊 / SYSTEM 26</span><span class="live"><i></i>LIVE DESIGN SIGNAL</span></header>
+<section class="hero" id="hero"><div><div class="eyebrow">RESEARCH / SYSTEM DESIGN / 01—03</div><h1>让内容，成为体验。</h1><p class="lead">先理解资料，再决定它应该如何被看见。将创意方向、版式、动态与视频分镜放进同一套可修改的设计流程。</p><div class="callout">RENDER READY · FRAME-SEEKABLE APPROACH</div></div><div class="space-art" aria-label="原创空间轨道装置">
+<svg viewBox="0 0 540 540" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="原创轨道几何"><circle cx="270" cy="270" r="200" stroke="#3B6872" stroke-width="1"/><g class="orbit"><ellipse cx="270" cy="270" rx="205" ry="85" transform="rotate(-28 270 270)" stroke="#59E1D2" stroke-width="2"/><circle cx="83" cy="314" r="9" fill="#59E1D2"/></g><g class="orbit reverse"><ellipse cx="270" cy="270" rx="130" ry="218" transform="rotate(35 270 270)" stroke="#FA7756" stroke-width="1.5"/><circle cx="170" cy="90" r="6" fill="#FA7756"/></g><circle cx="270" cy="270" r="103" stroke="#7CCCD0" stroke-dasharray="2 12"/><circle cx="270" cy="270" r="50" stroke="#DFF9F7" stroke-width="1"/><circle cx="270" cy="270" r="11" fill="#59E1D2"/><path d="M0 270H540M270 0V540" stroke="#375560" stroke-width="1" stroke-dasharray="6 17"/><path d="M349 198L472 113H529M172 343L72 433H15" stroke="#59E1D2"/><path d="M458 100H527M15 447H95" stroke="#7CCCD0"/></svg>
+<span class="space-label">VECTOR / PATH_001<br>STABLE TIMELINE</span></div></section>
+<section class="details" id="details"><div class="details-intro"><span class="eyebrow">DATA LAYER / INFORMATION</span><h2>把信息，<br>变成结构。</h2><p>同样的材料，采用高精度数据层级、空间纵深与场景标识重新组织。</p></div><div class="detail-grid"><article class="detail-item"><span class="seq">MODULE / 01</span><h3>从资料到结构</h3><p>整理标题、关系、时序与数据，为每一幕确定清晰的传播目的。</p><span class="trace"></span></article>
+<article class="detail-item"><span class="seq">MODULE / 02</span><h3>在开发前看见设计</h3><p>以实际 HTML 首屏和高密度内容样稿比较不同布局与动效，再确认艺术方向。</p><span class="trace"></span></article>
+<article class="detail-item"><span class="seq">MODULE / 03</span><h3>在画面中精准改稿</h3><p>定位文字、图形和动画对象，保留每次修改的依据与最小改动范围。</p><span class="trace"></span></article>
+<article class="detail-item"><span class="seq">MODULE / 04</span><h3>一套母版，多种输出</h3><p>相同的内容和视觉规范可以服务交互网页、横版视频与竖版视频。</p><span class="trace"></span></article></div></section>
+</main></body></html>

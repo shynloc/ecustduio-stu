@@ -1,0 +1,8 @@
+import {readFileSync,writeFileSync} from 'node:fs';import {join} from 'node:path';import {marked} from 'marked';import {fetchRelease,verifyRelease,UPDATE_PUBLIC_KEY} from './update-protocol.mjs';import {pathToFileURL} from 'node:url';
+const out='D:/EduStudio/deliverables/0.7.0';const old=await fetchRelease();writeFileSync(join(out,'previous-stable.json'),JSON.stringify(old.envelope,null,2));
+const prior=await import(pathToFileURL(join(process.cwd(),'test-results/v070-original-0.6.0/app/scripts/update-protocol.mjs')).href);if(prior.UPDATE_PUBLIC_KEY!==UPDATE_PUBLIC_KEY)throw new Error('Old client public key changed');prior.verifyRelease(JSON.parse(readFileSync(join(out,'stable.json'),'utf8')));
+const css="body{font:16px/1.85 system-ui,'Microsoft YaHei','PingFang SC',sans-serif;background:#f6f4ee;color:#253d32;max-width:980px;margin:30px auto;padding:24px}a{color:#28624b}h1{line-height:1.4}code{overflow-wrap:anywhere}li{margin:8px 0}blockquote{border-left:3px solid #b08142;margin:16px 0;padding:0 18px}pre{white-space:pre-wrap}";
+for(const [name,source] of [['EcuStudio-0.7.0-Guide','0.7.0发布与升级说明'],['EcuStudio-0.7.0-Agent','0.7.0本地Agent安装升级提示词']]){
+ const md=readFileSync('docs/'+source+'.md','utf8');writeFileSync(join(out,name+'.md'),md);writeFileSync(join(out,name+'.html'),`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${source}</title><style>${css}</style></head><body>${marked.parse(md)}</body></html>`);
+}
+console.log(JSON.stringify({previousStable:old.release.version,oldClientAcceptsNewSignature:true}));

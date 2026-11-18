@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {"id":"A-editorial-desktop","path":"rendered/editorial.html","width":1440,"height":900},
+    {"id":"A-editorial-mobile","path":"rendered/editorial.html","width":390,"height":844},
+    {"id":"A-editorial-details-desktop","path":"rendered/editorial.html","width":1440,"height":900,"anchor":"details"},
+    {"id":"A-editorial-details-mobile","path":"rendered/editorial.html","width":390,"height":844,"anchor":"details"},
+    {"id":"B-signal-desktop","path":"rendered/signal.html","width":1440,"height":900},
+    {"id":"B-signal-mobile","path":"rendered/signal.html","width":390,"height":844},
+    {"id":"B-signal-details-desktop","path":"rendered/signal.html","width":1440,"height":900,"anchor":"details"},
+    {"id":"B-signal-details-mobile","path":"rendered/signal.html","width":390,"height":844,"anchor":"details"},
+    {"id":"C-collision-desktop","path":"rendered/collision.html","width":1440,"height":900},
+    {"id":"C-collision-mobile","path":"rendered/collision.html","width":390,"height":844},
+    {"id":"C-collision-details-desktop","path":"rendered/collision.html","width":1440,"height":900,"anchor":"details"},
+    {"id":"C-collision-details-mobile","path":"rendered/collision.html","width":390,"height":844,"anchor":"details"}
+  ]
+}

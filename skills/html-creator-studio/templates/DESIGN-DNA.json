@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.8",
+  "profile_id": "replace-with-profile-id",
+  "label": "Personal Design DNA Draft",
+  "scope": "personal",
+  "revision": 1,
+  "status": "draft",
+  "fictional_fixture": false,
+  "source_refs": [
+    {
+      "id": "ref-001",
+      "kind": "user_text",
+      "private": true,
+      "description": "用户说喜欢克制的几何排列；这里只是文本来源。"
+    }
+  ],
+  "signals": [
+    {
+      "id": "sig-layout-001",
+      "dimension": "layout",
+      "value": "偏好有秩序的非对称留白",
+      "state": "INFERRED",
+      "confidence": 0.7,
+      "source_ids": ["ref-001"],
+      "user_evidence": "",
+      "design_application": "可试用不对称栅格和较大的呼吸空间，等待用户确认"
+    }
+  ],
+  "design_tokens": {
+    "background": "#F6F5F2",
+    "surface": "#FFFFFF",
+    "foreground": "#191919",
+    "muted": "#555555",
+    "accent": "#B74B26",
+    "font_stack": "system-ui, sans-serif",
+    "radius_px": 6,
+    "motion": "subtle",
+    "composition": "editorial"
+  },
+  "identity_rules": {
+    "must_keep": [],
+    "avoid": []
+  },
+  "approval": {
+    "state": "pending",
+    "revision": null,
+    "user_evidence": ""
+  },
+  "history": [
+    {"revision": 1, "action": "created", "note": "待审美确认"}
+  ]
+}

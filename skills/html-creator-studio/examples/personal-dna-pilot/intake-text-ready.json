@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.8",
+  "session_id": "fictional-text-complete",
+  "upload_state": "complete",
+  "analysis_request": "explicit",
+  "analysis_user_evidence": "虚构测试用户：上传完成，开始分析我提供的文字偏好。",
+  "references": [
+    {"id": "text-001", "kind": "text", "source_kind": "user_text", "vision_state": "not_applicable", "vision_evidence": "", "attitude": "positive", "liked_aspects": ["layout"], "disliked_aspects": ["motion"], "note": "虚构用户明确说喜欢宽松布局、讨厌自动播放动画。", "private": true, "analysis_permission": true, "external_transfer_permission": false}
+  ]
+}

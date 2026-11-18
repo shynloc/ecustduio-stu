@@ -1,0 +1,4 @@
+CREATE TABLE visual_drafts(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),version_id TEXT NOT NULL REFERENCES versions(id),job_id TEXT NOT NULL,body TEXT NOT NULL,copy_hash TEXT NOT NULL,visual_hash TEXT NOT NULL,html_asset_id TEXT NOT NULL REFERENCES assets(id),qa TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(job_id,version_id));
+CREATE TABLE visual_approvals(id TEXT PRIMARY KEY,visual_id TEXT NOT NULL REFERENCES visual_drafts(id),actor_id TEXT NOT NULL REFERENCES users(id),copy_hash TEXT NOT NULL,visual_hash TEXT NOT NULL,options TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TABLE source_previews(id TEXT PRIMARY KEY,version_id TEXT NOT NULL REFERENCES versions(id),job_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE INDEX source_previews_version ON source_previews(version_id,created_at);

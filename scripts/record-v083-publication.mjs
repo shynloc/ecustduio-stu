@@ -1,0 +1,11 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {fetchRelease} from './update-protocol.mjs';
+const out='D:/EduStudio/deliverables/0.8.3',read=p=>JSON.parse(readFileSync(p,'utf8'));
+const online=read('test-results/online-update-v083-result.json'),packages=read(out+'/public-package-verification.json'),local=read('test-results/v083-production-preservation.json'),ui=read('test-results/secret-settings-result.json');
+assert.ok(online.ok&&packages.ok&&local.ok&&ui.ok);
+const live=await fetchRelease();assert.equal(live.release.version,'0.8.3');assert.deepEqual(live.envelope,read(out+'/stable.json'));
+const result={product:'EcuStudio教创工作台',version:'0.8.3',publishedAt:new Date().toISOString(),ok:true,stableFeed:'https://dshdisk.acks.com.cn/ecustudio/releases/stable.json',packages:packages.records.map(({destination,...p})=>p),old050SignatureCompatible:packages.old050SignatureCompatible,secretUnitAndApiScenarios:8,browserChecks:ui.checks,onlineUpgrade:{fixture:online.fixture,checks:online.checks,ok:online.ok},localDeployment:local,macConfigureLauncher:'Configure-DeepSeek.command',macDiagnosticLauncher:'Check-Keychain.command',privateBusinessDataIncluded:false,macNativeExecuted:false,limitations:['The reported Mac only supplied a generic error and local URL; its exact native cause remains unconfirmed','Mac Keychain scenarios use a mocked child process; browser error handling and Windows credential persistence were actually executed','Native Keychain permission and Terminal configuration require the student Mac to run the bundled checks']};
+writeFileSync(out+'/EcuStudio-0.8.3-Acceptance.json',JSON.stringify(result,null,2));
+writeFileSync('test-results/v083-publication.json',JSON.stringify({version:'0.8.3',publishedAt:result.publishedAt,ok:true,onlineUpgrade:true,packagesVerified:true},null,2));
+console.log(JSON.stringify({version:'0.8.3',published:true,onlineUpgrade:true,originalDataPreserved:true,macNativeExecuted:false}));

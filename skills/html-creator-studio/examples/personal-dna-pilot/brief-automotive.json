@@ -1,0 +1,14 @@
+{
+  "project_id": "fictional-car-site",
+  "title": "虚构汽车改装案例",
+  "content_type": "automotive",
+  "purpose": "展示施工过程、车辆细节与真实证据",
+  "audience": "汽车改装客户",
+  "output": "web",
+  "mode": "quick",
+  "devices": ["desktop", "mobile"],
+  "semantic_priorities": ["车辆信息", "施工过程", "效果说明"],
+  "temporary_mood": "专业、精密",
+  "project_specific_avoid": ["不真实的马力数字"],
+  "privacy_boundary": "仅本地预览"
+}

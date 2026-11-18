@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.8",
+  "session_id": "replace-with-session-id",
+  "upload_state": "collecting",
+  "analysis_request": "pending",
+  "analysis_user_evidence": "",
+  "references": [
+    {
+      "id": "ref-001",
+      "kind": "vehicle",
+      "source_kind": "actual_image",
+      "vision_state": "unverified",
+      "vision_evidence": "",
+      "attitude": "partial",
+      "liked_aspects": ["material", "geometry"],
+      "disliked_aspects": ["typography"],
+      "note": "用户仅喜欢图中的金属质感和几何线条；不得从文件名推断颜色。",
+      "private": true,
+      "analysis_permission": true,
+      "external_transfer_permission": false
+    }
+  ]
+}

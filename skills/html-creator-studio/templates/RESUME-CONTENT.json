@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.8",
+  "source_label": "【原始简历文件名称或已授权文本】",
+  "identity": {"name": "【本人姓名】", "role": "【职业/身份】", "tagline": "【经本人审核的一句话介绍】"},
+  "intro": "【用户提供的真实个人简介】",
+  "experience": [
+    {"id": "exp-01", "role": "【职务】", "organization": "【机构】", "period": "【日期】", "details": ["【真实经历要点】"]}
+  ],
+  "projects": [
+    {"id": "project-01", "name": "【项目名称】", "description": "【可验证介绍】", "url": ""}
+  ],
+  "skills": ["【技能】"],
+  "contacts": [
+    {"label": "邮箱", "value": "private@example.test", "url": "mailto:private@example.test", "visibility": "private"}
+  ],
+  "copy_approval": {"state": "pending", "user_evidence": ""},
+  "publication_approval": {"state": "pending", "user_evidence": ""}
+}
