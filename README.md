@@ -4,7 +4,7 @@
 
 在同一场对话里还可以说“用第 2 版活动单写一篇给家长看的公众号文章，用中式古典主题”。预览后可以换主题，也可以确认要保存的公众号。说“把最初的教师 PPT 做成一分钟配音视频”，可逐页看讲稿、核对用量并试听，继续说“第三页慢一点”，最后确认渲染并下载 MP4 和 SRT。视频使用原演示的实际分页画面，需安装 LibreOffice。
 
-公开源码仓库为 [shynloc/ecustduio-stu](https://github.com/shynloc/ecustduio-stu)。下文介绍 `main` 的开发基线。本轮版本为 **0.11.0**。
+公开源码仓库为 [shynloc/ecustduio-stu](https://github.com/shynloc/ecustduio-stu)。下文介绍 `main` 的开发基线。本轮版本为 **0.11.1**。更新说明见 [0.11.1 发布与升级说明](docs/0.11.1发布与升级说明.md)。
 
 [0.11.0使用指南](docs/0.11.0使用指南.md) · [安装与升级说明](docs/0.11.0发布与升级说明.md)
 

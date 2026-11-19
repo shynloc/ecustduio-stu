@@ -120,19 +120,21 @@ export function cardMessage(
   if (!card) err("NO_ADAPTATION", "请选择文章或视频讲稿", 422);
   return { m, ctx, card };
 }
-function themeIn(text: string) {
+export function themeIn(text: string) {
+  // Generic requests such as “write a public-account article” are content tasks,
+  // not a request to switch to the newly imported public-account theme family.
+  if (!/主题|风格|排版|改用|换成|改为|切换/.test(text)) return;
+  const mode = /深色|暗色/.test(text) ? "dark" : "light";
   const matches = wechatThemeIds
     .map((key) => ({ key, label: wechatThemeLabels[key].split(" · ")[0] }))
-    .filter(
-      (t) =>
-        text.includes(t.label) &&
-        (t.key !== "milestone-wechat-light" ||
-          /公众号文章(?:主题|风格|排版)/.test(text)),
-    );
-  return matches.sort(
-    (a, b) => text.lastIndexOf(b.label) - text.lastIndexOf(a.label),
+    .filter(t => text.includes(t.label) && (!t.key.startsWith("milestone-wechat-") || /公众号文章[ ·]*(?:(?:浅色|深色)[ ·]*)?(?:主题|风格|排版)/.test(text)));
+  return matches.sort((a,b) =>
+    text.lastIndexOf(b.label)-text.lastIndexOf(a.label) ||
+    b.label.length-a.label.length ||
+    Number(b.key.endsWith('-'+mode))-Number(a.key.endsWith('-'+mode))
   )[0]?.key;
 }
+
 function numbered(s: string) {
   if (/^\d+$/.test(s)) return Number(s);
   const digits = "零一二三四五六七八九";

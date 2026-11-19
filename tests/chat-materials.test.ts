@@ -321,3 +321,15 @@ test("直接用上传的 Word 与重排过的 PPTX 创作，原件与来源绑�
     }
   }
 });
+
+
+test("新增主题不误匹配普通创作指令，明确主题可区分浅深色", async () => {
+  const {themeIn}=await import('../server/chat-adaptations.js');
+  assert.equal(themeIn('用上传的活动单写公众号文章'),undefined);
+  assert.equal(themeIn('将技术文档改成给家长看的公众号文章'),undefined);
+  assert.equal(themeIn('用中式古典主题写公众号文章'),'milestone-cnclassic-light');
+  assert.equal(themeIn('换成中式古典深色主题'),'milestone-cnclassic-dark');
+  assert.equal(themeIn('用公众号文章浅色主题排版'),'milestone-wechat-light');
+  assert.equal(themeIn('用公众号文章深色主题排版'),'milestone-wechat-dark');
+  assert.equal(themeIn('改用暗夜代码主题'),'milestone-darkcode-dark');
+});

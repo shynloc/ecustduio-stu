@@ -1,17 +1,22 @@
-import pathlib,shutil,tempfile,subprocess,json,hashlib,zipfile,datetime,sys
+import os, pathlib,shutil,tempfile,subprocess,json,hashlib,zipfile,datetime,sys
 app=pathlib.Path(__file__).resolve().parent.parent
 version=json.loads((app/'package.json').read_text(encoding='utf-8'))['version']
 output=pathlib.Path(sys.argv[1]).resolve();output.mkdir(parents=True,exist_ok=True)
 staging=app/'.artifacts'/'staging';staging.mkdir(parents=True,exist_ok=True)
 stage=pathlib.Path(tempfile.mkdtemp(prefix=f'macos-{version}-',dir=staging));product=stage/'app';product.mkdir()
+build=pathlib.Path(os.environ.get('ECUSTUDIO_RELEASE_BUILD_DIR',str(app))).resolve()
 for name in ['server','web','shared','migrations','skills','public','vendor','dist','dist-server']:
-    shutil.copytree(app/name,product/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+    shutil.copytree((build if name in ['dist','dist-server'] else app)/name,product/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','.artifacts','test-results','node_modules'))
 for name in ['package.json','package-lock.json','tsconfig.json','tsconfig.server.json','vite.config.ts','.env.example','.gitignore']:
     shutil.copy2(app/name,product/name)
 (product/'scripts').mkdir()
 shutil.copy2(app/'HANDOFF.md',product/'HANDOFF.md')
 shutil.copy2(app/'README.md',product/'DEVELOPMENT_README.md')
 shutil.copytree(app/'docs'/'plans',product/'docs'/'plans')
+for suffix in ['使用指南','发布与升级说明','本地Agent安装升级提示词','开发与验证记录']:
+    name=version+suffix+'.md'
+    shutil.copy2(app/'docs'/name,stage/name)
+    shutil.copy2(app/'docs'/name,product/'docs'/name)
 for doc in ['MAC_DEVELOPMENT.md','DEVELOPMENT_DIRECTION.md','NEXT_AGENT_PROMPT.md','0.11.0开发与验证记录.md','0.11.0使用指南.md','0.11.0发布与升级说明.md','公众号主题选择器与复制-2026-11-19.md']:shutil.copy2(app/'docs'/doc,product/'docs'/doc)
 for name in ['update-protocol.mjs','update-runner.mjs','upgrade.mjs','sync-update-runtime.mjs','macos-ocr.js','macos-service.mjs','macos-native-selftest.mjs','macos-keychain-check.mjs','macos-save-deepseek.mjs','diagnose-runtime.mjs','customer-selftest.mjs','setup-gif-runtime.mjs','gif-factory-export.py','gif-factory-decode.py','windows-ocr.ps1']:
     shutil.copy2(app/'scripts'/name,product/'scripts'/name)
