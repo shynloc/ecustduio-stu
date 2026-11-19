@@ -44,5 +44,5 @@ with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
 digest=hashlib.sha256(archive.read_bytes()).hexdigest()
 (output/(archive.name+'.sha256')).write_text(digest+'  '+archive.name+'\n',encoding='ascii')
 for name in ['产品说明.md','Mac安装与使用指南.md','本地Agent安装启动提示词.md']:shutil.copy2(stage/name,output/name)
-result=dict(version=version,archive=str(archive),bytes=archive.stat().st_size,sha256=digest,files=len(files)+1,macNativeValidation='not_run_on_windows',validation='See bundled version validation records and separately published release acceptance; macOS native execution not tested')
+result=dict(version=version,archive=str(archive),bytes=archive.stat().st_size,sha256=digest,files=len(files)+1,packagerPlatform=sys.platform,macNativeValidation='see_version_acceptance_and_customer_selftest',validation='See version acceptance for macOS product CI; interactive Keychain, Vision and LaunchAgent require native user-session selftest')
 (output/'release.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(result,ensure_ascii=False))
