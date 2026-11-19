@@ -1,3 +1,7 @@
+import { snapshotWebFilm } from "./html-film-snapshot.js";
+import { htmlSections, type HtmlFilm } from "./html-film.js";
+import { htmlFilmIntent } from "../shared/html-film.js";
+import { checkMediaAsset } from "./media-access.js";
 import { z } from "zod";
 import { presentationPages } from "./presentation-text.js";
 import {
@@ -84,7 +88,14 @@ export type Card = Base &
         palette: WechatTheme;
         article: string;
       }
-    | { kind: "video"; slideId: string; seconds: number; scenes: Scene[] }
+    | {
+        kind: "video";
+        slideId: string;
+        seconds: number;
+        scenes: Scene[];
+        html?: HtmlFilm;
+        projectId?: string;
+      }
   );
 export function cardMessage(
   cid: string,
@@ -195,13 +206,14 @@ function sourceFor(cid: string, kind: string, prompt: string) {
   let list = files;
   const named = list.filter((f) => f.title && prompt.includes(f.title));
   if (named.length) list = named;
-  else if (
-    /PPT|幻灯|课件/i.test(prompt) ||
-    (kind === "video" && !/母稿|活动单|讲义/.test(prompt))
-  )
+  else if (/HTML|网页/i.test(prompt))
+    list = list.filter((f) => f.format === "html");
+  else if (/PPT|幻灯|课件/i.test(prompt))
     list = list.filter((f) => f.format === "pptx");
   else if (/活动单|讲义|Word/i.test(prompt))
     list = list.filter((f) => f.format === "docx");
+  else if (kind === "video" && !/母稿/.test(prompt))
+    list = list.filter((f) => ["pptx", "html"].includes(f.format));
   const ref = prompt.match(/第\s*([\d一二三四五六七八九十]+)\s*版/);
   if (ref || /最初|原版|初版/.test(prompt))
     list = list.filter(
@@ -246,14 +258,30 @@ export function queueAdaptation(
     err("FORBIDDEN", "对话属于其他账号", 403);
   const edit =
     b.adaptEdit || (!b.derive && !b.reviseId && inferEdit(cid, b.prompt));
+  const priorHtml =
+    !b.reviseId &&
+    !b.derive &&
+    !edit &&
+    get(
+      "SELECT context FROM messages WHERE conversation_id=? AND json_extract(context,'$.adaptation.html.assetId') IS NOT NULL ORDER BY rowid DESC LIMIT 1",
+      cid,
+    );
+  const priorCard = priorHtml ? parse(priorHtml.context).adaptation : null;
+  const followHtml =
+    priorCard && /重新编排|重排|改成分镜|按分镜|保留原网页/.test(b.prompt);
+  const intent = !/^(?:请问|如何|怎么|为什么)/.test(b.prompt);
+  const videoRequest =
+    /配音视频|讲解视频|解说视频|(?:转|做|生成|导出|制作|渲染)[^，。！？]{0,25}(?:视频|MP4)/i.test(
+      b.prompt,
+    );
   const kind =
     b.derive?.kind ||
     (!b.reviseId &&
-      !/^(?:请问|如何|怎么|为什么)/.test(b.prompt) &&
-      /用|根据|把|改写|做成|转成|写成|制作|改成/.test(b.prompt) &&
-      (/配音视频|讲解视频|解说视频/.test(b.prompt)
+      intent &&
+      (followHtml || videoRequest
         ? "video"
-        : /公众号/.test(b.prompt)
+        : /用|根据|把|改写|做成|转成|写成|制作|改成/.test(b.prompt) &&
+            /公众号/.test(b.prompt)
           ? "wechat"
           : null));
   const request = b.prompt.trim().replace(/[。！!]+$/, "");
@@ -296,7 +324,7 @@ export function queueAdaptation(
     const files = freezeAttachments(b.attachmentIds || [], cid, user);
     const candidates = files.filter((f) =>
       kind === "video"
-        ? /\.pptx$/i.test(f.name)
+        ? /\.(pptx|html?)$/i.test(f.name)
         : /\.(pptx|docx)$/i.test(f.name),
     );
     const mentionsUpload = /上传|拖入|刚添加/.test(b.prompt);
@@ -319,16 +347,63 @@ export function queueAdaptation(
         ));
     if (!b.derive && mentionsUpload && files.length && !candidates.length)
       return null;
+    const urls: string[] = b.sourceUrls?.length
+      ? b.sourceUrls
+      : kind === "video" && !candidates.length && !b.derive && !b.projectSource
+        ? [...b.prompt.matchAll(/https?:\/\/[^\s，。；！？<>“”]+/gi)].map(
+            (m) => m[0],
+          )
+        : [];
+    const sourceUrl =
+      kind === "video" && !b.derive && !b.projectSource && urls.length
+        ? urls[0]
+        : undefined;
+    if (sourceUrl && (urls.length !== 1 || candidates.length))
+      err("CHOOSE_ATTACHMENT", "请选择一个网页地址或一份视频源文件。", 422);
+    if (sourceUrl && b.mode === "local")
+      err("WEB_DISABLED", "读取公开网页需要允许访问网址。", 422);
     const sourceId =
-      b.derive?.artifactId || (!useUpload && sourceFor(cid, kind, b.prompt));
-    if (!sourceId && !useUpload) return null;
+      b.projectSource?.id ||
+      b.derive?.artifactId ||
+      (!sourceUrl &&
+        !useUpload &&
+        (followHtml ? priorCard.sourceId : sourceFor(cid, kind, b.prompt)));
+    if (!sourceId && !sourceUrl && !useUpload) return null;
     if (c.owner_id !== user.id)
       err("FORBIDDEN", "请在自己的对话制作衍生内容", 403);
-    const source = sourceId ? revisionTarget(cid, sourceId, user) : undefined;
+    const original =
+      sourceId &&
+      (b.projectSource ||
+        get(
+          "SELECT a.id,a.format,a.manifest,a.asset_id,s.name FROM artifacts a JOIN assets s ON s.id=a.asset_id WHERE a.id=? AND a.target_id=?",
+          sourceId,
+          cid,
+        ));
+    let source;
+    if (original?.format === "html" && kind === "video") {
+      checkMediaAsset(original.asset_id, user);
+      const meta = parse(original.manifest);
+      source = {
+        id: original.id,
+        title: meta.title || original.name,
+        format: "html",
+        version: meta.version || 1,
+        assetId: original.asset_id,
+        bundle: meta.htmlBundle,
+        originalSources: [
+          {
+            id: "S1",
+            kind: "attachment",
+            assetId: original.asset_id,
+            title: original.name,
+          },
+        ],
+      };
+    } else if (sourceId) source = revisionTarget(cid, sourceId, user);
     if (useUpload && candidates.length !== 1)
       err(
         "CHOOSE_ATTACHMENT",
-        "请添加一份用来改写的 Word 或演示原件；配音视频请选择一份 PPTX。",
+        "请添加一份用来改写的 Word 或演示原件；视频请选择一份 HTML 或 PPTX。",
         422,
       );
     const upload = useUpload ? candidates[0] : undefined;
@@ -338,19 +413,38 @@ export function queueAdaptation(
       ? Number(duration[1].replace("一", "1").replace(/[两二]/, "2")) *
         (duration[0].includes("分钟") ? 60 : 1)
       : 60;
-    if (kind === "video" && (seconds < 10 || seconds > 600))
+    const html =
+      kind === "video" &&
+      (sourceUrl ||
+        source?.format === "html" ||
+        /\.html?$/i.test(upload?.name || ""))
+        ? b.htmlSettings ||
+          htmlFilmIntent(
+            b.prompt,
+            followHtml
+              ? { ...priorCard.html, seconds: priorCard.seconds }
+              : undefined,
+          )
+        : undefined;
+    if (!html && kind === "video" && (seconds < 10 || seconds > 600))
       err("DURATION_LIMIT", "请选择 10 秒至 10 分钟的目标时长", 422);
     op = {
       kind,
       source,
       upload,
-      seconds,
+      seconds:
+        followHtml && !b.htmlSettings && !/秒|分钟/.test(b.prompt)
+          ? priorCard.seconds
+          : (html?.seconds ?? seconds),
+      html,
+      sourceUrl,
       palette: themeIn(b.prompt) || "green",
     };
   }
   if (prior) err("IDEMPOTENCY_CONFLICT", "提交已用于另一项任务", 409);
-  workflowActor(user.id, !edit && !target);
-  if (!edit && !target && !hasSecret("deepseek"))
+  const needsModel = !edit && !target && (!op.html || op.html.narrated);
+  workflowActor(user.id, needsModel);
+  if (needsModel && !hasSecret("deepseek"))
     err("CAPABILITY_NOT_CONFIGURED", "请在设置中连接 DeepSeek 后创作", 503);
   return tx(() => {
     const j = enqueue(
@@ -375,6 +469,7 @@ export function queueAdaptation(
       json({
         targetTitle: op.source?.title || op.upload?.name || op.card?.sourceName,
         attachments: op.upload ? [op.upload] : undefined,
+        sourceUrls: op.sourceUrl ? [op.sourceUrl] : undefined,
         adaptation: true,
       }),
       j.id,
@@ -416,7 +511,10 @@ export async function runAdaptation(
   enqueue: any,
 ) {
   const op = input.chatAdaptation,
-    user = workflowActor(input.userId, !op.edit && !op.confirmation);
+    user = workflowActor(
+      input.userId,
+      !op.edit && !op.confirmation && (!op.html || op.html.narrated),
+    );
   if (op.confirmation) {
     const { card } = cardMessage(
       input.conversationId,
@@ -497,19 +595,79 @@ export async function runAdaptation(
     }
   } else {
     let source = op.source;
+    let bundle = op.source?.bundle;
+    if (op.sourceUrl) {
+      const snapshot =
+        cp.webFilm ||
+        (await snapshotWebFilm(op.sourceUrl, user.id, signal, progress));
+      checkpoint(jobId, { webFilm: snapshot });
+      bundle = snapshot.bundle;
+      const f = snapshot.file;
+      const original = tx(() => {
+        const a = storeWorkflowArtifact(
+          assetBuffer(f.id).data,
+          snapshot.name,
+          "html",
+          jobId + ":original",
+          input.conversationId,
+          {
+            ownerId: user.id,
+            conversationId: input.conversationId,
+            sourceHash: f.hash,
+            projectId: input.projectId,
+            sourceUrl: op.sourceUrl,
+            htmlBundle: bundle,
+          },
+        );
+        grantMediaAsset(a.asset_id, user.id);
+        return a;
+      });
+      sources = [
+        {
+          id: "S1",
+          title: snapshot.name,
+          url: op.sourceUrl,
+          sourceHash: f.hash,
+        },
+      ];
+      source = {
+        id: original.id,
+        title: snapshot.name,
+        format: "html",
+        version: 1,
+        assetId: f.id,
+        originalSources: sources,
+      };
+    }
     if (op.upload) {
       const [f] = freezeAttachments([op.upload.id], input.conversationId, user);
       if (f.hash !== op.upload.hash)
         err("ASSET_CHANGED", "原件已变化，请重新选择", 409);
-      const [ref] = await readChatMaterials(
-        { ...input, attachments: [f], sourceUrls: [] },
-        jobId,
-        signal,
-        progress,
-        transport,
-      );
+      const [ref] = op.html
+        ? [
+            {
+              id: "S1",
+              kind: "attachment",
+              title: f.name,
+              projectId: input.projectId,
+              assetId: f.id,
+              sourceHash: f.hash,
+              excerpt: "原 HTML 文件",
+            },
+          ]
+        : await readChatMaterials(
+            { ...input, attachments: [f], sourceUrls: [] },
+            jobId,
+            signal,
+            progress,
+            transport,
+          );
       sources = [{ ...ref, id: "S1" }];
-      const format = f.name.toLowerCase().endsWith(".pptx") ? "pptx" : "docx";
+      const format = op.html
+        ? "html"
+        : f.name.toLowerCase().endsWith(".pptx")
+          ? "pptx"
+          : "docx";
       const version = Number(
         f.name
           .match(/(?:第\s*(\d+)\s*版|[-_ ]v(\d+)(?=\.|[-_ ]))/i)
@@ -529,6 +687,7 @@ export async function runAdaptation(
             version,
             sourceHash: f.hash,
             title: f.name,
+            projectId: input.projectId,
           },
         );
         grantMediaAsset(result.asset_id, user.id);
@@ -536,6 +695,7 @@ export async function runAdaptation(
       });
       source = {
         id: file.id,
+        assetId: f.id,
         title: f.name,
         format,
         version,
@@ -545,7 +705,7 @@ export async function runAdaptation(
     }
     const provenance = {
       sourceId: source.id,
-      sourceAssetId: op.upload?.id,
+      sourceAssetId: op.upload?.id || (op.html ? source.assetId : undefined),
       sourceName: source.title,
       sourceVersion: source.version,
       version: 1,
@@ -617,7 +777,7 @@ export async function runAdaptation(
       model = result.model;
     } else {
       let slideId = source.id;
-      if (source.format !== "pptx") {
+      if (!op.html && source.format !== "pptx") {
         const [deck] = await renderConversationFiles(
           input,
           {
@@ -632,7 +792,24 @@ export async function runAdaptation(
         );
         slideId = deck.id;
       }
-      const pages = slideText(slideId);
+      const pages: { page: number; text: string; title?: string }[] = op.html
+        ? op.html.mode === "original" && !op.html.narrated
+          ? []
+          : htmlSections(assetBuffer(source.assetId).data.toString("utf8"))
+        : slideText(slideId);
+      if (
+        op.html &&
+        (op.html.mode === "storyboard" || op.html.narrated) &&
+        (!pages.length || pages.length > 40)
+      )
+        err(
+          "HTML_SCENES",
+          "分镜或配音需要 1–40 段可读的网页内容，可缩短原文或选择无声原样渲染。",
+          422,
+        );
+      if (op.html && !pages.length)
+        pages.push({ page: 1, title: source.title, text: "网页画面" });
+
       const maxSpoken = Math.ceil(op.seconds * 4.3);
       const schema = z
         .object({
@@ -658,6 +835,18 @@ export async function runAdaptation(
           "全片旁白过长，请压缩各页，总字数最多 " + maxSpoken + " 字",
         );
       const result =
+        (op.html && !op.html.narrated
+          ? {
+              content: {
+                scenes: pages.map((s: any) => ({
+                  ...s,
+                  title: s.title || source.title,
+                })),
+              },
+              usage: undefined,
+              model: "本机渲染",
+            }
+          : undefined) ||
         cp.plan ||
         (await structuredTask(
           {
@@ -686,7 +875,19 @@ export async function runAdaptation(
       card = {
         ...provenance,
         kind: "video",
-        title: source.title + " · 配音视频",
+        title: source.title + (op.html ? " · HTML 视频" : " · 配音视频"),
+        ...(op.html
+          ? {
+              html: {
+                assetId: source.assetId,
+                bundle,
+                mode: op.html.mode,
+                aspect: op.html.aspect,
+                narrated: op.html.narrated,
+              },
+              projectId: input.projectId,
+            }
+          : {}),
         slideId,
         seconds: op.seconds,
         scenes: result.content.scenes.map((s: any) => ({ ...s, speed: 1 })),
@@ -834,6 +1035,13 @@ export function registerChatAdaptations(app: any, enqueue: any) {
       return {
         ...ref,
         state: row.state,
+        progress:
+          row.state === "running"
+            ? get(
+                "SELECT json_extract(payload,'$.message') AS value FROM events WHERE job_id=? ORDER BY seq DESC LIMIT 1",
+                ref.id,
+              )?.value
+            : undefined,
         stage: row.stage,
         error: parse(row.error, null),
         result: parse(row.result, null),
@@ -889,7 +1097,9 @@ export function registerChatAdaptations(app: any, enqueue: any) {
     const key = type + ":" + req.params.mid;
     const old = get("SELECT id,state FROM jobs WHERE idempotency_key=?", key);
     if (old && old.state !== "canceled") return old;
-    if (type === "chat-film") {
+    if (type === "chat-narration" && card.html && !card.html.narrated)
+      err("NO_NARRATION", "当前选择了无声视频", 422);
+    if (type === "chat-film" && (!card.html || card.html.narrated)) {
       const approved = get(
         "SELECT id,state,input FROM jobs WHERE id=? AND type='chat-narration'",
         b.audioJobId || "",
@@ -921,6 +1131,7 @@ export function registerChatAdaptations(app: any, enqueue: any) {
         {
           actorId: req.user.id,
           conversationId: req.params.id,
+          projectId: card.projectId,
           messageId: req.params.mid,
           audioJobId: b.audioJobId,
         },

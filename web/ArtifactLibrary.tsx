@@ -12,7 +12,7 @@ type Artifact = {
   projectTitle?: string;
   qualityCheck?: { structure?: string; visual?: string };
   sourceStatus?: unknown[];
-  manifest?: { visualId?: string; conversationId?:string;messageId?:string };
+  manifest?: { visualId?: string; conversationId?:string;messageId?:string;projectId?:string };
 };
 
 export function ArtifactLibrary({ go }: { go: (route: string) => void }) {
@@ -183,7 +183,8 @@ export function ArtifactLibrary({ go }: { go: (route: string) => void }) {
                 <a href={"/api/artifacts/" + a.id + "/download"}>
                   下载 {a.format.toUpperCase()}
                 </a>
-                {a.manifest?.conversationId && <button className="text-link" onClick={()=>go("explore/"+a.manifest!.conversationId+"?file="+encodeURIComponent(a.id)+(a.manifest!.messageId?"&message="+encodeURIComponent(a.manifest!.messageId):""))}>打开来源对话</button>}
+                {a.manifest?.projectId && a.manifest?.conversationId && <button className="text-link" onClick={()=>go("project/"+a.manifest!.projectId+"?htmlFilm=1")}>打开来源项目</button>}
+                {a.manifest?.conversationId && !a.manifest?.projectId && <button className="text-link" onClick={()=>go("explore/"+a.manifest!.conversationId+"?file="+encodeURIComponent(a.id)+(a.manifest!.messageId?"&message="+encodeURIComponent(a.manifest!.messageId):""))}>打开来源对话</button>}
                 {a.manifest?.visualId && (
                   <button
                     className="text-link"

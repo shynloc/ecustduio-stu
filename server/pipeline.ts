@@ -102,7 +102,7 @@ export async function registerPipeline(app:any,enqueue:any){
    const rows = all(`SELECT a.*, s.name, s.size, v.id AS versionId, p.id AS projectId, p.title AS projectTitle
      FROM artifacts a JOIN assets s ON s.id=a.asset_id
      LEFT JOIN versions v ON v.id=a.target_id
-     LEFT JOIN projects p ON p.id=coalesce(v.project_id,a.target_id)
+     LEFT JOIN projects p ON p.id=coalesce(v.project_id,json_extract(a.manifest,'$.projectId'),a.target_id)
      WHERE coalesce(json_extract(a.manifest,'$.internalChatAudio'),0)=0 ORDER BY a.created_at DESC LIMIT 500`);
    return rows.filter(a => {
      try {

@@ -57,6 +57,9 @@ jobs:
           path: |
             test-results/pipeline-ui/
             test-results/wechat-ui/
+            test-results/html-film/*.mp4
+            test-results/html-film/*.png
+            test-results/html-film/evidence.json
             test-results/course-delivery/*.pptx
             test-results/course-delivery/*inline.png
             test-results/course-delivery/*.docx

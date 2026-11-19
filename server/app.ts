@@ -1,3 +1,4 @@
+import {registerProjectHtmlFilms} from "./project-html-films.js";
 import {registerWechatDrafts, wechatSecrets} from './wechat.js';
 import {officialWechat} from './wechat-client.js';
 import {registerPipeline} from './pipeline.js';
@@ -223,6 +224,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
   });
   await registerAuth(app);
   await registerExplore(app, enqueue);
+  registerProjectHtmlFilms(app,enqueue);
   await registerPipeline(app, enqueue);
   await registerResumableUploads(app);
   await registerProduction(app, enqueue);

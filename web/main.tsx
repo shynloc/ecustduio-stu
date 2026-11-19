@@ -1,3 +1,4 @@
+import {ProjectHtmlFilm} from "./ProjectHtmlFilm";
 import { workspaceNavigation, WorkspaceLinks, SectionLinks } from "./WorkspaceNavigation";
 import { ArtifactLibrary } from "./ArtifactLibrary";
 import {UploadLimits} from './UploadLimits';
@@ -2334,6 +2335,7 @@ function Project({ id, data, act, go, setModal }: any) {
         }
       />
       <ProjectVisualLinks projectId={id} go={go} refresh={taskStates}/>
+      <ProjectHtmlFilm key={id} projectId={id}/>
       <VisualWebImport scope={p.scope} go={go}/>
       <div className="tabs project-tabs">
         {Object.entries(kindNames).map(([k, label]) => (
@@ -3664,7 +3666,8 @@ function Tasks({ data, act, go }: any) {
                         )[j.type] || j.type}
                       </button>
                       {j.production && <button className="text-link" onClick={()=>go("deliver/"+j.id)}>继续查看 · {j.production.title||j.production.templateName}</button>}
-                      {j.conversationId && <button className="text-link" onClick={()=>go("explore/"+j.conversationId)}>返回原对话</button>}
+                      {j.htmlProjectId && <button className="text-link" onClick={()=>go("project/"+j.htmlProjectId+"?htmlFilm=1")}>返回创作项目</button>}
+                      {j.conversationId && !j.htmlProjectId && <button className="text-link" onClick={()=>go("explore/"+j.conversationId)}>返回原对话</button>}
                       <small>
                         {j.id.slice(0, 12)} · 尝试 {j.attempt}
                       </small>
@@ -3827,7 +3830,8 @@ function Job({ id, data, act, go, setModal }: any) {
         </section>
         <aside className="panel run-result">
           <h2>结果与依据</h2>
-          {job.conversationId && <Button secondary onClick={()=>go("explore/"+job.conversationId)}>返回原对话与文件</Button>}
+          {job.htmlProjectId && <Button secondary onClick={()=>go("project/"+job.htmlProjectId+"?htmlFilm=1")}>返回创作项目</Button>}
+          {job.conversationId && !job.htmlProjectId && <Button secondary onClick={()=>go("explore/"+job.conversationId)}>返回原对话与文件</Button>}
           {job.production && (
             <div className="notice">
               <p>

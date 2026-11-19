@@ -14,7 +14,7 @@ type Item = {
   file?: File;
 };
 const supported =
-  /\.(pdf|docx|pptx|md|txt|csv|json|png|jpe?g|webp|wav|mp3|m4a|ogg|webm)$/i;
+  /\.(html?|pdf|docx|pptx|md|txt|csv|json|png|jpe?g|webp|wav|mp3|m4a|ogg|webm)$/i;
 export function useChatMaterials() {
   const [items, set] = useState<Item[]>([]),
     [issue, setIssue] = useState("");
@@ -52,7 +52,7 @@ export function useChatMaterials() {
     for (const file of files) {
       if (!supported.test(file.name)) {
         setIssue(
-          file.name + " 格式暂不支持。可添加 PDF、Word、PPT、文字、图片或录音。",
+          file.name + " 格式暂不支持。可添加 HTML、PDF、Word、PPT、文字、图片或录音。",
         );
         continue;
       }
@@ -122,7 +122,7 @@ export function ChatMaterials({
         ref={chooser}
         type="file"
         multiple
-        accept=".pdf,.docx,.pptx,.txt,.md,.csv,.json,.jpg,.jpeg,.png,.webp,.wav,.mp3,.m4a,.ogg,.webm"
+        accept=".html,.htm,.pdf,.docx,.pptx,.txt,.md,.csv,.json,.jpg,.jpeg,.png,.webp,.wav,.mp3,.m4a,.ogg,.webm"
         aria-label="添加对话材料"
         onChange={(e) => {
           materials.add(Array.from(e.target.files || []));

@@ -72,6 +72,7 @@ export function jobView(j: any, compact = false) {
       masterId:checkpoint.masterId, versionId:checkpoint.versionId,
       completedStages:[checkpoint.research && 'research',checkpoint.masterId && 'master',checkpoint.versionId && 'content',j.state==='succeeded' && 'export'].filter(Boolean),
     } : undefined,
+    htmlProjectId:["explore","chat-narration","chat-film"].includes(j.type)?parse(j.input).projectId:undefined,
     conversationId: ["explore","conversation-export","chat-narration","chat-film"].includes(j.type) ? parse(j.input).conversationId : undefined,
     parentProductionId:j.type === "visual-export" ? parse(j.input).parentProductionId : undefined,
     input: undefined,

@@ -106,6 +106,7 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
             } as any
           )[j.state]
         }
+        {j.progress && " · " + j.progress}
         {j.error?.message ? " · " + j.error.message : ""}
         {["failed", "interrupted", "partial"].includes(j.state) && (
           <button
@@ -123,7 +124,13 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
       id={card.articleFileId ? "chat-file-" + card.articleFileId : undefined}
       tabIndex={-1}
       className="adaptation-card"
-      aria-label={card.kind === "wechat" ? "对话公众号文章" : "对话配音视频"}
+      aria-label={
+        card.kind === "wechat"
+          ? "对话公众号文章"
+          : card.html
+            ? "HTML 视频"
+            : "对话配音视频"
+      }
     >
       <header>
         <h3>{card.title}</h3>
@@ -146,7 +153,13 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
         </small>
         <small>
           来源：
-          <a href={card.sourceAssetId ? "/api/artifacts/"+card.sourceId+"/download" : "#explore/" + cid + "?file=" + card.sourceId}>
+          <a
+            href={
+              card.sourceAssetId
+                ? "/api/artifacts/" + card.sourceId + "/download"
+                : "#explore/" + cid + "?file=" + card.sourceId
+            }
+          >
             {source?.title || card.sourceName} · 第 {card.sourceVersion} 版
           </a>
         </small>
@@ -188,7 +201,12 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
                 srcDoc={preview.previewHtml}
               />
               <div className="button-row">
-                <a className="btn secondary" href={"#wechat/"+card.noteId+"?preview="+card.previewId}>编辑文章</a>
+                <a
+                  className="btn secondary"
+                  href={"#wechat/" + card.noteId + "?preview=" + card.previewId}
+                >
+                  编辑文章
+                </a>
                 <button
                   className="btn secondary"
                   onClick={() =>
@@ -296,14 +314,61 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
         </>
       ) : (
         <>
-          <div className="button-row">
-            <span>
-              原演示 {card.scenes.length} 页 · 目标 {card.seconds} 秒
-            </span>
-            <button className="text-link" onClick={() => setShowSlides(true)}>
-              查看原演示画面
-            </button>
-          </div>
+          {card.html && (
+            <>
+              <p>
+                {card.html.mode === "original"
+                  ? "保留原网页版式和动效"
+                  : "重新编排分镜"}{" "}
+                ·{" "}
+                {
+                  { landscape: "横屏", portrait: "竖屏", square: "方形" }[
+                    card.html.aspect as "landscape" | "portrait" | "square"
+                  ]
+                }{" "}
+                · {card.seconds} 秒
+              </p>
+              {card.html.mode === "storyboard" && (
+                <details>
+                  <summary>查看分镜 · {card.scenes.length} 段</summary>
+                  <ol>
+                    {card.scenes.map((s: any) => (
+                      <li key={s.page}>
+                        <strong>{s.title}</strong>
+                        <p>{s.text}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
+              {!card.html.narrated && (!film || film.state === "canceled") && (
+                <button
+                  className="btn"
+                  disabled={!state || busy}
+                  onClick={() =>
+                    perform(() =>
+                      post(base + "/jobs", {
+                        action: "render",
+                        confirmed: true,
+                      }),
+                    )
+                  }
+                >
+                  生成无声视频
+                </button>
+              )}
+            </>
+          )}
+          {!card.html && (
+            <div className="button-row">
+              <span>
+                原演示 {card.scenes.length} 页 · 目标 {card.seconds} 秒
+              </span>
+              <button className="text-link" onClick={() => setShowSlides(true)}>
+                查看原演示画面
+              </button>
+            </div>
+          )}
           {showSlides && (
             <OfficePages
               conversationId={cid}
@@ -315,151 +380,160 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
               onClose={() => setShowSlides(false)}
             />
           )}
-          <label className="field">
-            旁白页码
-            <select
-              aria-label="旁白页码"
-              value={page}
-              onChange={(e) => setPage(Number(e.target.value))}
-            >
-              {card.scenes.map((s: any) => (
-                <option key={s.page} value={s.page}>
-                  第 {s.page} 页 · {s.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <small>
-            {take
-              ? "本页实际旁白 " +
-                (
-                  take.timeline[page - 1].audioEnd -
-                  take.timeline[page - 1].start
-                ).toFixed(1) +
-                " 秒"
-              : "本页旁白预计约 " +
-                Math.ceil([...text].length / (3.5 * speed || 3.5)) +
-                " 秒，试听后显示实际时长。"}
-          </small>
-          <label className="field">
-            本页讲稿
-            <textarea
-              aria-label="本页讲稿"
-              rows={3}
-              maxLength={1000}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-          </label>
-          <div className="button-row">
-            <label>
-              本页语速{" "}
-              <input
-                aria-label="本页语速"
-                type="number"
-                min=".7"
-                max="1.5"
-                step=".1"
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-              />
-            </label>
-            <button
-              className="btn secondary"
-              disabled={
-                busy ||
-                !text.trim() ||
-                speed < 0.7 ||
-                speed > 1.5 ||
-                (text === scene.text && speed === scene.speed)
-              }
-              onClick={() =>
-                perform(() =>
-                  edit("修改第 " + page + " 页讲稿与语速", {
-                    action: "scene",
-                    page,
-                    text,
-                    speed,
-                  }),
-                )
-              }
-            >
-              保存为新版讲稿
-            </button>
-          </div>
-          <p>
-            {state &&
-              "本次需合成 " +
-                state.estimate.segments +
-                " 段，共 " +
-                state.estimate.characters +
-                " 个计费字符；其余复用本账号已有配音。"}
-          </p>
-          {(!audio || audio.state === "canceled") && (
-            <button
-              className="btn"
-              data-chat-action="listen"
-              disabled={!state || busy}
-              onClick={() =>
-                perform(() =>
-                  post(base + "/jobs", { action: "listen", confirmed: true }),
-                )
-              }
-            >
-              {state?.estimate.characters
-                ? "确认配音用量并试听"
-                : "复用配音并试听"}
-            </button>
-          )}
-          {status(audio)}
-          {take && (
+          {(!card.html || card.html.narrated) && (
             <>
-              <label id={"chat-file-" + take.wav.id} tabIndex={-1}>
-                整段试听 · 语音 {take.speechSeconds.toFixed(1)} 秒，含画面停留共{" "}
-                {take.duration.toFixed(1)} 秒
-                <audio
-                  aria-label="整段试听"
-                  controls
-                  preload="metadata"
-                  src={"/api/assets/" + take.wav.assetId}
+              <label className="field">
+                旁白页码
+                <select
+                  aria-label="旁白页码"
+                  value={page}
+                  onChange={(e) => setPage(Number(e.target.value))}
+                >
+                  {card.scenes.map((s: any) => (
+                    <option key={s.page} value={s.page}>
+                      第 {s.page} 页 · {s.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <small>
+                {take
+                  ? "本页实际旁白 " +
+                    (
+                      take.timeline[page - 1].audioEnd -
+                      take.timeline[page - 1].start
+                    ).toFixed(1) +
+                    " 秒"
+                  : "本页旁白预计约 " +
+                    Math.ceil([...text].length / (3.5 * speed || 3.5)) +
+                    " 秒，试听后显示实际时长。"}
+              </small>
+              <label className="field">
+                本页讲稿
+                <textarea
+                  aria-label="本页讲稿"
+                  rows={3}
+                  maxLength={1000}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
                 />
               </label>
-              <label>
-                第 {page} 页试听
-                <audio
-                  key={page}
-                  aria-label="本页试听"
-                  controls
-                  preload="none"
-                  src={"/api/assets/" + take.timeline[page - 1].audioAssetId}
-                />
-              </label>
-              {(!film || film.state === "canceled") && (
+              <div className="button-row">
+                <label>
+                  本页语速{" "}
+                  <input
+                    aria-label="本页语速"
+                    type="number"
+                    min=".7"
+                    max="1.5"
+                    step=".1"
+                    value={speed}
+                    onChange={(e) => setSpeed(Number(e.target.value))}
+                  />
+                </label>
+                <button
+                  className="btn secondary"
+                  disabled={
+                    busy ||
+                    !text.trim() ||
+                    speed < 0.7 ||
+                    speed > 1.5 ||
+                    (text === scene.text && speed === scene.speed)
+                  }
+                  onClick={() =>
+                    perform(() =>
+                      edit("修改第 " + page + " 页讲稿与语速", {
+                        action: "scene",
+                        page,
+                        text,
+                        speed,
+                      }),
+                    )
+                  }
+                >
+                  保存为新版讲稿
+                </button>
+              </div>
+              <p>
+                {state &&
+                  "本次需合成 " +
+                    state.estimate.segments +
+                    " 段，共 " +
+                    state.estimate.characters +
+                    " 个计费字符；其余复用本账号已有配音。"}
+              </p>
+              {(!audio || audio.state === "canceled") && (
+                <button
+                  className="btn"
+                  data-chat-action="listen"
+                  disabled={!state || busy}
+                  onClick={() =>
+                    perform(() =>
+                      post(base + "/jobs", {
+                        action: "listen",
+                        confirmed: true,
+                      }),
+                    )
+                  }
+                >
+                  {state?.estimate.characters
+                    ? "确认配音用量并试听"
+                    : "复用配音并试听"}
+                </button>
+              )}
+              {status(audio)}
+              {take && (
                 <>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={complete}
-                      onChange={(e) => setComplete(e.target.checked)}
+                  <label id={"chat-file-" + take.wav.id} tabIndex={-1}>
+                    整段试听 · 语音 {take.speechSeconds.toFixed(1)}{" "}
+                    秒，含画面停留共 {take.duration.toFixed(1)} 秒
+                    <audio
+                      aria-label="整段试听"
+                      controls
+                      preload="metadata"
+                      src={"/api/assets/" + take.wav.assetId}
                     />
-                    已核对本版画面、配音与时长
                   </label>
-                  <button
-                    className="btn"
-                    data-chat-action="render"
-                    disabled={!complete || busy}
-                    onClick={() =>
-                      perform(() =>
-                        post(base + "/jobs", {
-                          action: "render",
-                          audioJobId: audio.id,
-                          confirmed: true,
-                        }),
-                      )
-                    }
-                  >
-                    确认渲染 MP4 与字幕
-                  </button>
+                  <label>
+                    第 {page} 页试听
+                    <audio
+                      key={page}
+                      aria-label="本页试听"
+                      controls
+                      preload="none"
+                      src={
+                        "/api/assets/" + take.timeline[page - 1].audioAssetId
+                      }
+                    />
+                  </label>
+                  {(!film || film.state === "canceled") && (
+                    <>
+                      <label className="check-row">
+                        <input
+                          type="checkbox"
+                          checked={complete}
+                          onChange={(e) => setComplete(e.target.checked)}
+                        />
+                        已核对本版画面、配音与时长
+                      </label>
+                      <button
+                        className="btn"
+                        data-chat-action="render"
+                        disabled={!complete || busy}
+                        onClick={() =>
+                          perform(() =>
+                            post(base + "/jobs", {
+                              action: "render",
+                              audioJobId: audio.id,
+                              confirmed: true,
+                            }),
+                          )
+                        }
+                      >
+                        确认渲染 MP4 与字幕
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </>
@@ -469,7 +543,9 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
             <div key={f.id} id={"chat-file-" + f.id} tabIndex={-1}>
               {f.format === "mp4" && (
                 <video
-                  aria-label="配音成片"
+                  aria-label={
+                    card.html && !card.html.narrated ? "网页成片" : "配音成片"
+                  }
                   controls
                   preload="metadata"
                   src={"/api/assets/" + f.assetId}

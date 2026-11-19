@@ -135,6 +135,11 @@ export function inspectMedia(bytes: Buffer, name: string) {
       err("INVALID_DOCUMENT", "旧版Office文档格式不正确", 422);
     return { kind: "document", mime: "application/octet-stream" };
   }
+  if ([".html",".htm"].includes(ext)){
+    if(bytes.length>16*1048576 || bytes.includes(0))err("HTML_SIZE","请选择 16 MB 以内的 UTF-8 HTML 文件",422);
+    try{new TextDecoder("utf-8",{fatal:true}).decode(bytes);}catch{err("HTML_ENCODING","请将网页另存为 UTF-8 HTML。",422);}
+    return {kind:"document",mime:"text/html"};
+  }
   if ([".txt", ".md", ".csv", ".json"].includes(ext)) {
     if (bytes.length > 32 * 1024 * 1024 || bytes.subarray(0, 1024).includes(0))
       err("INVALID_DOCUMENT", "文本需为UTF-8且最多32MB", 422);

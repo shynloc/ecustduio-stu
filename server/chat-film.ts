@@ -1,3 +1,5 @@
+import { filmResources } from "./html-film-snapshot.js";
+import { renderHtmlFilm, htmlSections } from "./html-film.js";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { get, run, parse, json, tx, err, requireRow, dataDir } from "./db.js";
@@ -30,6 +32,16 @@ export async function runChatFilmTask(
   );
   if (card.kind !== "video") return err("WRONG_CARD", "找不到原视频讲稿", 409);
   const meta = {
+    ...(card.html
+      ? {
+          projectId: card.projectId,
+          htmlMode: card.html.mode,
+          sourceAssetId: card.html.assetId,
+          sourceHash: requireRow(
+            get("SELECT hash FROM assets WHERE id=?", card.html.assetId),
+          ).hash,
+        }
+      : {}),
     ownerId: user.id,
     conversationId: input.conversationId,
     sourceArtifactId: card.sourceId,
@@ -141,6 +153,90 @@ export async function runChatFilmTask(
         duration: pos / 16000,
         speechSeconds: spoken / 16000,
         conversationId: input.conversationId,
+      };
+    }
+    if (card.html) {
+      checkMediaAsset(card.html.assetId, user);
+      const original = assetBuffer(card.html.assetId);
+      const html = original.data.toString("utf8");
+      const scenes =
+        card.html.mode === "storyboard" ? htmlSections(html) : card.scenes;
+      if (!scenes.length) err("EMPTY_HTML", "没有可用的网页场景", 422);
+      let duration = card.seconds,
+        timeline: any[] = scenes.map((s, i) => ({
+          start: (i * duration) / scenes.length,
+          text: s.text,
+        })),
+        audioPath: string | undefined;
+      if (card.html.narrated) {
+        const audio = requireRow(
+          get(
+            "SELECT type,state,input,result FROM jobs WHERE id=?",
+            input.audioJobId,
+          ),
+        );
+        if (
+          audio.type !== "chat-narration" ||
+          audio.state !== "succeeded" ||
+          parse(audio.input).messageId !== input.messageId
+        )
+          err("AUDIO_REQUIRED", "请确认这一版的试听", 409);
+        const take = parse(audio.result);
+        checkMediaAsset(take.wav.assetId, user);
+        duration = take.duration;
+        timeline = take.timeline;
+        audioPath = join(dir, "audio.wav");
+        await writeFile(audioPath, assetBuffer(take.wav.assetId).data);
+      }
+      const output = join(dir, "网页视频.mp4");
+      const info = await renderHtmlFilm({
+        html,
+        film: card.html,
+        seconds: duration,
+        scenes,
+        timeline,
+        resources: filmResources(card.html.bundle, user),
+        audioPath,
+        output,
+        signal,
+        progress,
+        check,
+      });
+      check();
+      const artifacts = [
+        save(await readFile(output), card.title + ".mp4", "mp4"),
+      ];
+      if (audioPath)
+        artifacts.push(
+          save(
+            Buffer.from(
+              timeline
+                .map(
+                  (s, i) =>
+                    i +
+                    1 +
+                    "\n" +
+                    ts(s.start) +
+                    " --> " +
+                    ts(s.audioEnd) +
+                    "\n" +
+                    s.text +
+                    "\n",
+                )
+                .join("\n"),
+            ),
+            card.title + ".srt",
+            "srt",
+          ),
+        );
+      return {
+        ...info,
+        artifacts,
+        duration,
+        sourceHash: original.a.hash,
+        mode: card.html.mode,
+        conversationId: input.conversationId,
+        projectId: card.projectId,
       };
     }
     const audio = requireRow(
