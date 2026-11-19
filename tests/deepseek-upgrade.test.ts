@@ -22,7 +22,8 @@ after(async () => { await app.close(); D.db.close(); });
 
 test("旧设置保持快速模式，新增思考和输出预算有边界", () => {
   assert.equal(Settings.parse({}).thinkingMode, "disabled");
-  assert.equal(Settings.safeParse({ maxTokens: 65537 }).success, false);
+  assert.equal(Settings.safeParse({ maxTokens: 131072 }).success, true);
+  assert.equal(Settings.safeParse({ maxTokens: 393217 }).success, false);
   assert.deepEqual(P.thinkingOptions({ thinkingMode: "high" }), { thinking: { type: "enabled" }, reasoning_effort: "high" });
   assert.deepEqual(P.thinkingOptions({}), { thinking: { type: "disabled" } });
 });

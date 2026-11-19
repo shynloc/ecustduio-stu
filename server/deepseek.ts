@@ -46,7 +46,7 @@ export function addUsage(total: ReturnType<typeof newUsage>, value: any) {
   total.imageSearches += value?.server_tool_use?.tool_image_search || 0;
 }
 
-export async function deepseekRequest(body: any, signal: AbortSignal, transport: typeof fetch = fetch, onStream?:StreamListener) {
+export async function deepseekRequest(body: any, signal: AbortSignal, transport: typeof fetch = fetch, onStream?:StreamListener, allowPartial = false) {
   validateToolMode(body);
   const key = transport === fetch ? await getSecret("deepseek") : undefined;
   if (!key && transport === fetch)
@@ -76,7 +76,7 @@ export async function deepseekRequest(body: any, signal: AbortSignal, transport:
   const choice = result?.choices?.[0];
   if (choice?.finish_reason === "content_filter" || choice?.message?.refusal)
     err("MODEL_REFUSAL", "DeepSeek 未通过内容审核，请调整问题或资料后重试", 422);
-  if (choice?.finish_reason === "length")
+  if (!allowPartial && choice?.finish_reason === "length")
     err("MODEL_TRUNCATED", "输出或思考达到 token 上限，请减少篇幅、降低思考强度或提高输出预算后重试", 422);
   return result;
 }

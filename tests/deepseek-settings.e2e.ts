@@ -88,6 +88,16 @@ try {
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByText("高级设置：调用预算与超时").click();
+  const budget = page.getByLabel("最大输出 token", {exact:true});
+  await budget.fill("999999");
+  await expect(page.getByRole("button",{name:"保存生成设置"})).toBeDisabled();
+  await budget.fill("131072");
+  await page.getByRole("button",{name:"保存生成设置"}).click();
+  await expect(page.getByRole("button",{name:"保存生成设置"})).toBeDisabled();
+  await page.reload();
+  await page.getByText("高级设置：调用预算与超时").click();
+  await expect(budget).toHaveValue("131072");
   configured = true;
   await page.reload();
   await expect(

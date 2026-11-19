@@ -1,7 +1,8 @@
+import {exploreCompletion, webpagePlan} from "./webpage-delivery.js";
 import {creationModelHelp} from '../shared/actions.js';
 import {extractFilePlan,fileInstructions} from "./conversation-files.js";
 import { err, json, now } from "./db.js";
-import { deepseekRequest, thinkingOptions, assistantMessage, newUsage, addUsage } from "./deepseek.js";
+import { thinkingOptions, assistantMessage } from "./deepseek.js";
 
 // Replay provider state only inside the server. A local-only turn excludes prior
 // web turns, even if the preceding turn was made through another search engine.
@@ -115,24 +116,25 @@ export async function runNativeExplore(input: any, progress: any, signal: AbortS
   if (json(messages).length > cfg.maxInputChars)
     err("BUDGET_EXCEEDED", "对话上下文超过预算，请减少笔记或新建对话");
   progress("model", { message: readOnly ? "DeepSeek 正在阅读链接并整理" : cfg.thinkingMode !== "disabled" ? "DeepSeek 正在深度搜索与交叉核对" : "DeepSeek 正在搜索与整理" });
-  const response = await deepseekRequest({
+  const completion = exploreCompletion(input, progress, dependencies.check, signal, transport);
+  const response = await completion.request({
     model: cfg.model, messages, ...thinkingOptions(cfg),
     tools: readOnly ? [{ type: "deepseek_read_url" }] : [{ type: "deepseek_web_search" }, { type: "deepseek_read_url" }],
     safety_check: { level: cfg.exploreSafetyCheck === false ? "low" : "high" },
     ...(input.autoTitle ? { title: { enabled: true } } : {}),
     max_tokens: cfg.maxTokens, stream: true,stream_options:{include_usage:true},
-  }, signal, transport,delta=>progress(delta.text?"text.delta":"usage",delta));
+  }, delta=>progress(delta.text?"text.delta":"usage",delta));
   signal.throwIfAborted(); dependencies.check();
   const message = response.choices?.[0]?.message;
   if (!message) err("MODEL_EMPTY", "模型未返回可用回答");
   if (message.tool_calls?.length) err("TOOL_FORBIDDEN", "官方搜索返回了未授权的本地工具调用", 422);
   const result = nativeAnswer(message, sources, dependencies.safeUrl);
   result.tools.push(...(input.skillLog||[]));
-  const usage = newUsage(); addUsage(usage, response.usage);
+  const usage = completion.usage;
   for (const step of result.tools.filter((t:any)=>t.name!=="read_skill")) progress("retrieve", { message: step.status === "failed" ? "部分联网操作未完成" :
     step.action === "search" ? "已完成联网搜索" : "已完成网页阅读", name: step.name });
   for(const s of input.materialSources||[])result.warnings.push(...(s.warnings||[]));
-  const delivery=extractFilePlan(result.text);
+  const delivery=webpagePlan(result.text, completion.webpage) ?? extractFilePlan(result.text);
   if(result.sources.length && delivery.fileDrafts?.some(d=>!(/\[S\d+\]/.test(d.content))))
     err("REFERENCE_INVALID","有独立文件缺少课程来源编号，请重试本轮",422);
   return { ...result, ...delivery, usage, model: response.model || cfg.model, thinkingMode: cfg.thinkingMode || "disabled",

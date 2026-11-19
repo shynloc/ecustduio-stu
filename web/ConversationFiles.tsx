@@ -89,7 +89,7 @@ export function ConversationFiles({
           {["html", "pdf", "md"].includes(f.format) && (
             <a
               className="text-link"
-              href={"/api/artifacts/" + f.id + "/download?preview=1"}
+              href={f.format === "html" ? "/api/collections/artifacts/" + f.id + "/preview" : "/api/artifacts/" + f.id + "/download?preview=1"}
               target="_blank"
               rel="noreferrer"
             >

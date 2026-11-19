@@ -62,7 +62,7 @@ import {
   Users,
 } from "lucide-react";
 import { api, init, post, put, patch, upload } from "./api";
-import { kindNames, DeepSeekSettings } from "../shared/schema";
+import { kindNames, DeepSeekSettings, maxOutputTokens } from "../shared/schema";
 import "./style.css";
 import "./themes.css";
 import "./daylight.css";
@@ -3897,11 +3897,19 @@ function SettingsPage({ data, act, setModal, section }: any) {
     );
   }, [data.settings.revision]);
   const edit = (k: string, v: any) => {
-    setCfg({ ...cfg, [k]: v });
+    setCfg((current: any) => ({ ...current, [k]: v }));
     setConnection(null);
   };
   const aiFields = Object.keys(DeepSeekSettings.shape);
   const aiDirty = aiFields.some((k) => cfg[k] !== data.settings[k]);
+  const budgetRanges = [
+    ["maxTokens", "最大输出 token", 1024, maxOutputTokens],
+    ["maxRequests", "最多模型请求", 1, 40],
+    ["maxTools", "最多工具调用", 1, 50],
+    ["timeoutSeconds", "任务超时（秒）", 30, 3600],
+    ["maxInputChars", "输入资料上限（字符）", 5000, 1000000],
+  ] as const;
+  const invalidBudget = budgetRanges.find(([key,,min,max]) => !Number.isInteger(cfg[key]) || cfg[key] < min || cfg[key] > max);
   const credentialSaved = data.capabilities.deepseek === "configured";
   const testHint = !credentialSaved
     ? "第1步：先填写 API Key 并点击「保存密钥」。"
@@ -4207,7 +4215,7 @@ function SettingsPage({ data, act, setModal, section }: any) {
                   disabled={aiBusy}
                   type="number"
                   min="1"
-                  max="20"
+                  max="40"
                   value={cfg.maxRequests}
                   onChange={(e) => edit("maxRequests", +e.target.value)}
                 />
@@ -4230,17 +4238,28 @@ function SettingsPage({ data, act, setModal, section }: any) {
                   onChange={(e) => edit("timeoutSeconds", +e.target.value)}
                 />
               </Field>
+              <Field label="输入资料上限（字符）">
+                <input type="number" min="5000" max="1000000" value={cfg.maxInputChars} disabled={aiBusy} onChange={(e) => edit("maxInputChars", +e.target.value)} />
+              </Field>
               <Field label="最大输出 token">
                 <input
                   disabled={aiBusy}
                   type="number"
                   min="1024"
-                  max="65536"
+                  max={maxOutputTokens}
                   value={cfg.maxTokens}
                   onChange={(e) => edit("maxTokens", +e.target.value)}
                 />
               </Field>
             </div>
+            <p className="help">每次输出可设为 1,024 至 393,216 token。网页达到单次上限时，会在任务预算内自动续写。</p>
+            <Button secondary disabled={aiBusy} onClick={() => {
+              setCfg((v: any) => ({ ...v, maxTokens: 32768, maxInputChars: 240000, timeoutSeconds: 1200, maxRequests: 12 }));
+              setConnection(null);
+            }}>使用长任务推荐值</Button>
+            <Button disabled={aiBusy || !aiDirty || !!invalidBudget} onClick={() => saveAI()}>保存生成设置</Button>
+            {invalidBudget && <p role="alert">{invalidBudget[1]}请填写 {invalidBudget[2]} 至 {invalidBudget[3]} 之间的整数。</p>}
+            <small role="status">{aiDirty ? "有未保存的 DeepSeek 设置" : "当前设置已保存，新任务将使用这些值"}</small>
           </details>
         </section>
         <section id="schedule-settings" tabIndex={-1} className="panel settings-card">

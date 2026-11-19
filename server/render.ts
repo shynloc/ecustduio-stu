@@ -62,7 +62,7 @@ export async function render(p: any, format: string, out: string) {
       .join("\n") +
     `\n\n版本 ${p.versionId} · ${p.generatedAt}`;
   if (format === "md") writeFileSync(out, md);
-  else if (format === "html") writeFileSync(out, reportHtml(p));
+  else if (format === "html") writeFileSync(out, p.webpageHtml ?? reportHtml(p));
   else if (format === "json")
     writeFileSync(out, JSON.stringify({ schemaVersion: "1.0", ...p }, null, 2));
   else if (format === "csv") {

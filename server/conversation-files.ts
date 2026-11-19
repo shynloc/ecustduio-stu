@@ -1,3 +1,4 @@
+import { htmlDocument, maxPageChars } from "./webpage-delivery.js";
 import { z } from "zod";
 import { exportFile } from "./exports.js";
 import { err, get, now, requireRow } from "./db.js";
@@ -12,8 +13,8 @@ const FilePlan = z
   .object({ title: z.string().trim().min(1).max(120), formats: chatFormats })
   .strict();
 export const FileCall = FilePlan.extend({
-  content: z.string().trim().min(1).max(100000),
-});
+  content: z.string().trim().min(1).max(maxPageChars),
+}).refine(d => d.content.length <= 100000 || d.formats.every(f => f === "html"), "文档正文超过十万字上限");
 export const fileTool = {
   type: "function",
   function: {
@@ -203,6 +204,7 @@ async function renderDraft(
     version:(input.target?.version||0)+1,previousId:input.target?.id,familyId:input.target?.familyId,
     conversationId: input.conversationId,
     chatMarkdown: draft.content,
+    ...(plan.formats.includes("html") ? { webpageHtml: htmlDocument(draft.content)?.content } : {}),
     blocks,
     sources: sources.map((s: any) => ({
       id: s.id,

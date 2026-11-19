@@ -55,17 +55,18 @@ export const ImportInput = z
     sourceId: z.string().optional(),
   })
   .refine((v) => v.url || v.text, "请提供网址或原文");
+export const maxOutputTokens = 384 * 1024;
 export const Settings = z.object({
   theme: z.enum(["scholar", "obsidian"]).default("scholar"),
   model: z.string().min(1).max(100).default("deepseek-flash"),
   thinkingMode: z.enum(["disabled", "low", "high", "max"]).default("disabled"),
   exploreEngine: z.enum(["native", "controlled"]).default("native"),
   exploreSafetyCheck: z.boolean().default(true),
-  maxRequests: z.number().int().min(1).max(20).default(8),
+  maxRequests: z.number().int().min(1).max(40).default(12),
   maxTools: z.number().int().min(1).max(50).default(30),
-  timeoutSeconds: z.number().int().min(30).max(1800).default(600),
-  maxInputChars: z.number().int().min(5000).max(200000).default(100000),
-  maxTokens: z.number().int().min(1024).max(65536).default(8192),
+  timeoutSeconds: z.number().int().min(30).max(3600).default(1200),
+  maxInputChars: z.number().int().min(5000).max(1000000).default(240000),
+  maxTokens: z.number().int().min(1024).max(maxOutputTokens).default(32768),
   region: z.string().max(100).default("北京"),
   keywords: z
     .string()

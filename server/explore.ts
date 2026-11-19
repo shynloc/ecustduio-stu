@@ -1,4 +1,5 @@
 import {skillBundle,skillCatalog} from './workflow-agent.js';
+import {exploreCompletion, webpagePlan} from "./webpage-delivery.js";
 import {creationActions,creationModelHelp} from '../shared/actions.js';
 import {packContext,conversationMemory,relevantText} from './context-budget.js';
 import {AdaptKind,AdaptEdit,queueAdaptation,registerChatAdaptations} from "./chat-adaptations.js";
@@ -23,7 +24,7 @@ import {
   requireRow,
   audit,
 } from "./db.js";
-import { deepseekRequest, thinkingOptions, assistantMessage, newUsage, addUsage } from "./deepseek.js";
+import { thinkingOptions, assistantMessage } from "./deepseek.js";
 import { runNativeExplore, exploreHistory } from "./native-explore.js";
 import { getSecret, hasSecret } from "./secrets.js";
 import { fetchPublic, isPublicAddress } from "./security.js";
@@ -282,10 +283,9 @@ export async function runExplore(
       err("WRONG_REVISION_TARGET","模型没有只交付指定附件，请重试该轮",422);
     return native;
   }
-  const sources: any[] = [],
-    warnings: string[] = [],
-    tools: any[] = [...(input.skillLog||[])],
-    usage = newUsage();
+  const completion = exploreCompletion(input, progress, () => ensureExploreUser(input.userId), signal, transport);
+  const usage = completion.usage;
+  const sources: any[] = [], warnings: string[] = [], tools: any[] = [...(input.skillLog||[])];
   if (input.mode !== "local" && engine === "native" && cfg.model !== "deepseek-flash")
     warnings.push("官方联网工具需要 deepseek-flash，本轮使用当前模型与工作台检索。");
   if (input.mode !== "local" && input.webAction === "read")
@@ -315,7 +315,7 @@ export async function runExplore(
   async function tool(name: string, a: any) {
     signal.throwIfAborted();
     ensureExploreUser(input.userId);
-    if (++calls > Math.min(cfg.maxTools, 16))
+    if (++calls > cfg.maxTools)
       err("BUDGET_EXCEEDED", "探索工具调用预算已用完");
     progress("retrieve", {
       name,
@@ -418,7 +418,7 @@ export async function runExplore(
   const turnStart = messages.length;
   let correctionOutputs: string | undefined;
   let requestedFiles: {title:string;formats:string[]} | undefined;
-  for (let round = 0; round < Math.min(cfg.maxRequests, 8); round++) {
+  for (let round = 0; round < cfg.maxRequests; round++) {
     signal.throwIfAborted();
     ensureExploreUser(input.userId);
     if (json(messages).length > cfg.maxInputChars)
@@ -427,7 +427,7 @@ export async function runExplore(
       message: `DeepSeek 正在整理，第${round + 1}轮`,
       round: round + 1,
     });
-    const response = await deepseekRequest(
+    const response = await completion.request(
       {
         model: cfg.model,
         messages,
@@ -442,11 +442,8 @@ export async function runExplore(
         max_tokens: cfg.maxTokens,
         stream: true,stream_options:{include_usage:true},
       },
-      signal,
-      transport,
       delta=>progress(delta.text?"text.delta":"usage",{...delta,round:round+1}),
     );
-    addUsage(usage, response.usage);
     const m = response.choices?.[0]?.message;
     if (!m) err("MODEL_EMPTY", "模型未返回可用回答");
     if (response.choices[0].finish_reason === "length")
@@ -496,7 +493,7 @@ export async function runExplore(
       text:drafts.length===1 ? drafts[0].content : drafts.map((d:any)=>"# "+d.title+"\n\n"+d.content).join("\n\n"),
       fileDrafts: drafts.length>1 ? drafts : undefined,
       filePlan: drafts.length===1 ? {title:drafts[0].title,formats:drafts[0].formats} : undefined
-    } : extractFilePlan(String(m.content||"").trim());
+    } : (webpagePlan(String(m.content||""), completion.webpage) ?? extractFilePlan(String(m.content||"").trim()));
     const {text,filePlan,fileDrafts}=parsed;
     if(input.target && !matchesRevision(input.target.format,fileDrafts,filePlan)){
       messages.push({role:"assistant",content:text},{role:"user",content:"只交付 revisionTarget 指定原稿的修订版；调用 deliver_files，格式仅用 "+input.target.format+"。"});
@@ -550,6 +547,9 @@ export async function runExplore(
 export function commitExplore(input: any, result: any, jobId: string) {
   ensureExploreUser(input.userId);
   const { _providerMessages, fileDrafts, filePlan, ...publicResult } = result;
+  if (result.artifacts?.some((a: any) => a.format === "html")) {
+    publicResult.text = "已生成文件：" + result.artifacts.map((a: any) => a.title || a.name).join("、") + "。可在下方预览或下载。";
+  }
   return tx(() => {
     const prior = get(
       "SELECT * FROM messages WHERE job_id=? AND role='assistant'",
@@ -562,7 +562,7 @@ export function commitExplore(input: any, result: any, jobId: string) {
       mid,
       input.conversationId,
       "assistant",
-      result.text,
+      publicResult.text,
       json(result.sources),
       json({
         artifacts: result.artifacts || [],
@@ -598,7 +598,11 @@ export async function runConversationExport(input:any,jobId:string,progress:any,
   check();
   const m=requireRow(get("SELECT * FROM messages WHERE id=? AND conversation_id=? AND role='assistant'",input.messageId,input.conversationId));
   const ctx=parse(m.context);
-  const artifacts=await renderConversationFiles(input,{text:m.content,sources:parse(m.sources,[]),warnings:ctx.warnings,
+  // A delivered webpage has a short chat receipt. Re-export the original document.
+  const hasPage = ctx.artifacts?.some((f: any) => f.format === "html");
+  const original = hasPage && parse(get("SELECT checkpoint FROM jobs WHERE id=?", m.job_id)?.checkpoint).exploreResult;
+  const text = original?.text || m.content;
+  const artifacts=await renderConversationFiles(input,{text,sources:parse(m.sources,[]),warnings:ctx.warnings,
     filePlan:{title:input.title,formats:[input.format]}},jobId,signal,check,progress);
   signal.throwIfAborted();check();progress("commit",{message:"正在将文件附到原回答"});
   tx(()=>{

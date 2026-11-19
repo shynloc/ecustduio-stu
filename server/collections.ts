@@ -357,7 +357,7 @@ export async function registerCollections(app: any) {
       const a = access("artifacts", req.params.id, req.user);
       if (a.format !== "html") err("INVALID_PREVIEW", "请选择网页作品", 422);
       const { data } = assetBuffer(a.asset_id);
-      return reply.type("text/html; charset=utf-8").send(data);
+      return reply.header("Content-Disposition", "inline").type("text/html; charset=utf-8").send(data);
     },
   );
   app.post("/api/collections/artifacts/:id/note", async (req: any) => {

@@ -95,7 +95,10 @@ export async function readCompletionStream(
   try {
     while (!done) {
       signal.throwIfAborted();
-      const chunk = await reader!.read();
+      const chunk = await reader!.read().catch(() => {
+        signal.throwIfAborted();
+        return err("MODEL_STREAM_TRANSPORT", "模型连接中断，未收到完整回答", 502);
+      });
       if (chunk.done) break;
       size += chunk.value.byteLength;
       if (size > 16 * 1024 * 1024)
