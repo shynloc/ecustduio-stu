@@ -588,7 +588,7 @@ function App({ onLogout }: any) {
           {page === 'input'&&<InputCenter {...common}/>}
           {page === 'settings'&&data.user?.role==='admin'&&<UploadLimits/>}
           {page === 'deliver'&&<PipelineStudio key={route} {...common} id={itemId}/>}
-          {page === 'wechat'&&<WechatEditor {...common} id={itemId}/>}
+          {page === 'wechat'&&<WechatEditor key={route} route={route} {...common} id={itemId}/>}
           {page === "policies" &&
             (sales ? <SalesPolicies {...common} /> : <Policies {...common} />)}
           {page === "snapshot" &&

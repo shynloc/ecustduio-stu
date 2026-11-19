@@ -880,3 +880,19 @@ nav.section-links a { padding:.45rem .8rem; }
 .adaptation-card .wechat-preview {margin:.3rem auto; max-height:60vh;}
 .adaptation-card audio,.adaptation-card video {display:block; width:100%; max-width:640px;}
 .adaptation-card input[type=number] {max-width:6rem;}
+
+.wechat-studio .page-heading,.manuscript-controls,.manuscript-output,.manuscript-mobile{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.wechat-studio .page-heading{justify-content:space-between;align-items:baseline}
+.wechat-studio .btn svg,.manuscript-phone h2 svg,.manuscript-mobile svg{width:17px;height:17px;flex:none}
+.manuscript-controls{padding:10px 0 14px}.manuscript-controls label{display:flex;gap:9px;align-items:center}.manuscript-controls select{width:auto}
+.manuscript-save-state{margin-right:auto;font-size:.85rem;color:var(--muted)}
+.manuscript-panes{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.85fr);gap:16px;align-items:stretch}
+.manuscript-input,.manuscript-phone{padding:20px;min-width:0}.manuscript-input fieldset{min-width:0;border:0;padding:0;margin:0}
+.manuscript-input .field input{font-size:1.22rem;font-weight:650}
+.manuscript-input .note-md-input textarea{width:100%;min-height:390px;resize:vertical;line-height:1.7}
+.manuscript-phone h2{margin:0 0 14px;display:flex;align-items:center;gap:8px;font-size:1rem}
+.manuscript-phone .wechat-preview,.manuscript-empty{width:100%;max-width:390px;height:clamp(420px,62vh,740px);display:block;margin:auto;box-sizing:border-box}
+.manuscript-empty{display:grid;place-items:center;background:var(--surface);color:var(--muted);border:1px dashed var(--border);border-radius:12px;font-size:.9rem}
+.manuscript-output{padding:18px 0}.manuscript-output .wechat-save{margin-left:auto}
+.manuscript-picker{margin-bottom:12px;padding:16px;max-height:320px;overflow:auto}.manuscript-picker h2{font-size:1rem}.manuscript-picker button,.manuscript-mobile button{background:transparent;color:inherit;border:1px solid var(--border);border-radius:7px;cursor:pointer;padding:7px 12px;margin:3px}.manuscript-mobile{display:none}
+@media(max-width:850px){.manuscript-panes{display:block}.manuscript-mobile{display:flex;margin-bottom:10px;gap:4px}.manuscript-mobile button{display:flex;align-items:center;gap:6px}.manuscript-mobile button[aria-pressed=true]{font-weight:700;border-color:currentColor}.manuscript-panes[data-mobile=write] .manuscript-phone,.manuscript-panes[data-mobile=preview] .manuscript-input{display:none}.manuscript-controls{gap:6px}.manuscript-save-state{flex-grow:1}.manuscript-input,.manuscript-phone{padding:12px}.manuscript-output .wechat-save{margin-left:0}}

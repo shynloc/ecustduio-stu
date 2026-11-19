@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync,readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect } from "playwright/test";
 import { testBrowser } from "./browser-helper.js";
@@ -249,7 +249,7 @@ try {
   await page.getByRole("button", { name: "公众号排版", exact: true }).click();
   const theme = page.getByLabel("公众号主题");
   await theme.selectOption("milestone-darkcode-dark");
-  await page.getByRole("button", { name: "生成手机排版" }).click();
+
   const frame = page.frameLocator(".wechat-preview");
   await expect(frame.getByRole("heading", { name: "课堂问题" })).toBeVisible();
   const dark = await frame
@@ -257,25 +257,19 @@ try {
     .first()
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   await theme.selectOption("milestone-cnclassic-light");
-  await expect(page.locator(".wechat-preview")).toHaveCount(0);
-  await page.getByRole("button", { name: "生成手机排版" }).click();
+
+
   await expect(frame.getByRole("heading", { name: "课堂问题" })).toBeVisible();
+  await expect.poll(()=>frame.locator("section").first().evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(dark);
   const light = await frame
     .locator("section")
     .first()
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   assert.notEqual(dark, light);
-  await page.getByText("下载或复制排版", { exact: true }).click();
-  const assetUrl = await page
-    .getByRole("link", { name: /下载/ })
-    .getAttribute("href");
-  assert.ok(assetUrl?.startsWith("/api/assets/"));
-  const exported = await page.request.get(base + assetUrl);
-  assert.equal(exported.status(), 200);
-  assert.equal(
-    await exported.text(),
-    await page.locator(".wechat-preview").getAttribute("srcdoc"),
-  );
+  const event=page.waitForEvent("download");
+  await page.getByRole("button",{name:"下载 HTML"}).click();
+  const file=await (await event).path();assert.ok(file);
+  assert.equal(readFileSync(file,"utf8"),await page.locator(".wechat-preview").getAttribute("srcdoc"));
   assert.deepEqual(errors, []);
   console.log(
     "Notebook passed: responsive cards, folder filter, Markdown preview and save, frozen article themes.",

@@ -189,6 +189,8 @@ type Props = {
   text: string;
   label: string;
   maxLength: number;
+  imageLabel?:string;
+  placeholder?:string;
   onChange: (text: string) => void;
 };
 
@@ -196,6 +198,8 @@ export function MarkdownSourceEditor({
   text,
   label,
   maxLength,
+  imageLabel="选择笔记图片",
+  placeholder,
   onChange,
 }: Props) {
   const input = useRef<HTMLTextAreaElement>(null);
@@ -370,7 +374,7 @@ export function MarkdownSourceEditor({
         ref={fileInput}
         hidden
         type="file"
-        aria-label="选择笔记图片"
+        aria-label={imageLabel}
         accept="image/png,image/jpeg,image/webp"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -382,6 +386,7 @@ export function MarkdownSourceEditor({
       <textarea
         ref={input}
         aria-label={label}
+        placeholder={placeholder}
         rows={16}
         value={text}
         maxLength={maxLength}

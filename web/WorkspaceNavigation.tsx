@@ -35,7 +35,7 @@ const sections: Record<string, readonly [string, string, ...string[]][]> = {
     ["library", "使用模板", "make"],
     ["steward", "描述需求"],
     ["deliver", "从素材制作", "visual"],
-    ["wechat", "公众号排版与草稿"],
+    ["wechat", "公众号编辑器"],
     ["speech", "文字配音"],
   ],
   projects: [

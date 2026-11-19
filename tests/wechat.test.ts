@@ -260,6 +260,8 @@ test("已知微信拒绝可重试；断开/换号/笔记更新不能悄悄发送
   );
 });
 test("管理员/创作者/业务员权限，私有笔记、预览、任务、封面、草稿隔离", async () => {
+  const manuscriptId=D.id(),content={title:"私有草稿",body:"正文",palette:"green",summary:"",coverAssetId:""};
+  assert.equal((await req("PUT","/api/wechat/manuscripts/"+manuscriptId,{revision:0,content})).statusCode,200);
   for (const role of ["creator", "sales"]) {
     const uid = D.id();
     D.run(
@@ -291,6 +293,10 @@ test("管理员/创作者/业务员权限，私有笔记、预览、任务、封
       cookie: String(login.headers["set-cookie"]).split(";")[0],
       "x-csrf-token": login.json().csrf,
     };
+    const manuscript="/api/wechat/manuscripts/"+manuscriptId;
+    assert.ok([403,404].includes((await req("GET",manuscript,undefined,h)).statusCode));
+    assert.ok([403,404].includes((await req("GET",manuscript+"/layout?revision=1",undefined,h)).statusCode));
+    assert.equal((await req("PUT",manuscript,{revision:1,content:{...content,body:"尝试更改"}},h)).statusCode,403);
     for (const url of [
       "/api/wechat/previews/" + preview.id,
       "/api/wechat/drafts/" + draft.id,
@@ -360,6 +366,19 @@ test("管理员/创作者/业务员权限，私有笔记、预览、任务、封
     }
   }
 });
+test("在编辑器继续冻结稿时保留原始版本，共用正在保存的回执", async()=>{
+  const {n,p,d}=await newDraft("已有保存记录");
+  const article=(await req("POST","/api/wechat/manuscripts/from-note",{noteId:n.id,previewId:p.id})).json();
+  assert.equal(article.draft.id,d.id);
+  const path="/api/wechat/manuscripts/"+article.id;
+  const original=await req("POST",path+"/draft",{revision:1,accountId:connection.id,confirmed:true});
+  assert.equal(original.json().id,d.id);
+  const modified=(await req("PUT",path,{revision:1,content:{...article.content,body:"编辑器中的新正文"}})).json();
+  const result=await req("POST",path+"/draft",{revision:modified.revision,accountId:connection.id,confirmed:true});
+  assert.equal(result.statusCode,409);assert.equal(result.json().error.code,"RECONCILE_FIRST");
+  assert.equal(D.get("SELECT revision FROM notes WHERE id=?",n.id).revision,n.revision);
+});
+
 test("Windows 公众号密钥沿用本机加密，重开存储不会变成明文", {skip:process.platform!=="win32"}, async () => {
   const key = "wechat." + D.id(),
     secret = "Synthetic-encryption-test-only";

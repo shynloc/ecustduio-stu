@@ -25,7 +25,7 @@ function execute(node,args,options={}){
   if(r.error||r.status!==0)throw new Error('Upgrade step failed; see the preceding message.');
 }
 const quote = name => '"'+name.replaceAll('"','""')+'"';
-const tables=['wechat_accounts','wechat_previews','wechat_drafts','users','settings','sources','assets','snapshots','paragraphs','claims','topics','projects','versions','drafts','notes','note_documents','note_categories','note_history','context_refs','knowledge_operations','evidence_blocks','evidence_reviews','pipeline_preferences','conversations','messages','characters','media_jobs','note_materials','visual_drafts','visual_approvals','source_previews'];
+const tables=['wechat_manuscripts','wechat_accounts','wechat_previews','wechat_drafts','users','settings','sources','assets','snapshots','paragraphs','claims','topics','projects','versions','drafts','notes','note_documents','note_categories','note_history','context_refs','knowledge_operations','evidence_blocks','evidence_reviews','pipeline_preferences','conversations','messages','characters','media_jobs','note_materials','visual_drafts','visual_approvals','source_previews'];
 export function inventory(dbPath,previous) {
   const db=new DatabaseSync(dbPath,{readOnly:true});const result={};
   try {

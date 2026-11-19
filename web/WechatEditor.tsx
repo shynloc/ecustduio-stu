@@ -1,7 +1,17 @@
-import {articleProfiles} from "../shared/wechat-themes";
+import { wechatThemeLabels } from "../shared/wechat-themes";
 import React, { useEffect, useRef, useState } from "react";
-import { api, post, upload } from "./api";
-import { copyRichHtml } from "./compat";
+import { api, post, put, upload } from "./api";
+import { MarkdownSourceEditor } from "./MarkdownSourceEditor";
+import {
+  FilePlus2,
+  NotebookPen,
+  History,
+  PencilLine,
+  Smartphone,
+  Copy,
+  Download,
+} from "lucide-react";
+import { copyRichHtml, uid } from "./compat";
 
 export function WechatConnection({ onChange }: any) {
   const [info, setInfo] = useState<any>(null),
@@ -175,517 +185,732 @@ const labels: Record<string, string> = {
   failed: "暂未保存",
   saved: "已保存到公众号草稿箱",
 };
-export function WechatEditor({ go, id, data }: any) {
-  const [notes, setNotes] = useState<any[]>([]),
-    [selected, setSelected] = useState(id || ""),
-    [palette, setPalette] = useState("green"),
-    [title, setTitle] = useState(""),
-    [summary, setSummary] = useState(""),
-    [cover, setCover] = useState<any>(null),
-    [preview, setPreview] = useState<any>(null),
-    [draft, setDraft] = useState<any>(null),
-    [history, setHistory] = useState<any[]>([]),
-    [connection, setConnection] = useState<any>(null),
-    [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(""),
-    [connectOpen, setConnectOpen] = useState(false);
-  const generation = useRef(0),
-    restored = useRef(""),
-    note = notes.find((n) => n.id === selected);
-  const params = new URLSearchParams(location.hash.split("?")[1] || ""),
-    previewId = params.get("preview") || "",
-    draftId = params.get("draft") || "",
-    routeKey = [id || "", previewId, draftId].join(":");
-  function remember(p: any, d: any = null) {
-    const noteId = p?.noteId || selected || id || "",
-      query = new URLSearchParams();
-    if (p) query.set("preview", p.id);
-    if (d) query.set("draft", d.id);
-    restored.current = [noteId, p?.id || "", d?.id || ""].join(":");
-    historyReplace("wechat" + (noteId ? "/" + noteId : "") + (query.size ? "?" + query : ""));
-  }
-  function historyReplace(route: string) {
-    window.history.replaceState(window.history.state, "", "#" + route);
-  }
-  function invalidate() {
-    generation.current++;
-    setPreview(null);
-    setDraft(null);
-    setMessage("");
-    remember(null);
-  }
-  useEffect(() => {
-    let active = true;
-    Promise.all([
-      api("/notes"),
-      api("/wechat/connection"),
-      api("/wechat/drafts"),
-    ])
-      .then(([n, c, h]) => {
-        if (active) {
-          setNotes(n);
-          setConnection(c);
-          setHistory(h);
-        }
-      })
-      .catch((e) => active && setMessage(e.message));
-    return () => {
-      active = false;
-      generation.current++;
-    };
-  }, []);
-  useEffect(() => {
-    if (restored.current === routeKey) return;
-    restored.current = routeKey;
-    const seq = ++generation.current;
-    setSelected(id || "");
-    setPreview(null);
-    setDraft(null);
-    setMessage("");
-    setTitle("");
-    setSummary("");
-    setCover(null);
-    setPalette("green");
-    if (!previewId) { setBusy(false); return; }
-    setBusy(true);
-    (async () => {
-      try {
-        const p = await api("/wechat/previews/" + encodeURIComponent(previewId));
-        if (p.noteId !== id) throw new Error("这份预览不属于当前笔记，请重新选择笔记。");
-        const fresh = await api("/notes/" + p.noteId);
-        const d = draftId ? await api("/wechat/drafts/" + encodeURIComponent(draftId)) : null;
-        if (d && d.previewId !== p.id) throw new Error("保存记录与预览不对应，请从最近的保存记录重新打开。");
-        if (seq !== generation.current) return;
-        setNotes(ns => ns.some(n => n.id === fresh.id) ? ns.map(n => n.id === fresh.id ? fresh : n) : [...ns, fresh]);
-        setTitle(p.options?.title ?? p.title);
-        setSummary(p.options?.summary ?? p.summary);
-        setPalette(p.palette);
-        setCover(p.options ? (p.options.coverAssetId ? {id:p.options.coverAssetId} : null) : p.cover);
-        // Saved records remain readable snapshots. An unsent stale preview must
-        // be regenerated from the changed note before the save button reappears.
-        if (fresh.revision === p.revision || d) {
-          setPreview(p);
-          setDraft(d);
-          setMessage(d ? "已恢复保存记录。" : "已恢复上次预览，可以继续检查和保存。");
-        } else {
-          setMessage("笔记正文已更新，排版设置已保留。请重新生成手机排版后保存。");
-        }
-      } catch (e: any) {
-        if (seq === generation.current) setMessage(e.message);
-      } finally {
-        if (seq === generation.current) setBusy(false);
-      }
-    })();
-  }, [routeKey]);
+
+type Content = {
+  title: string;
+  body: string;
+  palette: string;
+  summary: string;
+  coverAssetId: string;
+};
+const blank: Content = {
+  title: "",
+  body: "",
+  palette: "green",
+  summary: "",
+  coverAssetId: "",
+};
+const endpoint = "/wechat/manuscripts";
+
+function DraftRecord({ draft, onChange }: any) {
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!draft || !["queued", "running"].includes(draft.jobState)) return;
-    let stopped = false;
-    const timer = setInterval(() => {
-      api("/wechat/drafts/" + draft.id)
-        .then((d) => {
-          if (!stopped) {
-            setDraft(d);
-            setHistory((h) => [d, ...h.filter((x) => x.id !== d.id)]);
-          }
-        })
-        .catch((e) => {
-          if (!stopped) setMessage(e.message);
-        });
-    }, 1500);
+    let active = true;
+    const timer = setInterval(
+      () =>
+        api("/wechat/drafts/" + draft.id)
+          .then((r) => {
+            if (active) onChange(r);
+          })
+          .catch((e) => active && setError(e.message)),
+      1200,
+    );
     return () => {
-      stopped = true;
+      active = false;
       clearInterval(timer);
     };
   }, [draft?.id, draft?.jobState]);
-  async function prepare() {
-    const seq = ++generation.current;
+  if (!draft) return null;
+  async function retry(absent = false) {
+    if (absent && !confirm("已在该公众号后台核对，确认没有这篇草稿？")) return;
     setBusy(true);
-    setMessage("");
-    setDraft(null);
     try {
-      const fresh = await api("/notes/" + selected);
-      if (seq !== generation.current) return;
-      setNotes((ns) => ns.map((n) => (n.id === fresh.id ? fresh : n)));
-      const p = await post("/notes/" + selected + "/wechat-preview", {
-        revision: fresh.revision,
-        palette,
-        title: title || undefined,
-        summary: summary || undefined,
-        coverAssetId: cover?.id,
-      });
-      if (seq === generation.current) {
-        setPreview(p);
-        remember(p);
-        setMessage("预览已准备好。检查文章和封面后即可保存。");
-      }
+      onChange(
+        await post("/wechat/drafts/" + draft.id + "/retry", {
+          confirmedAbsent: absent,
+        }),
+      );
+      setError("");
     } catch (e: any) {
-      if (seq === generation.current) setMessage(e.message);
+      setError(e.message);
     } finally {
-      if (seq === generation.current) setBusy(false);
+      setBusy(false);
     }
   }
-  async function save() {
-    if (!preview || !connection?.connected) return;
-    const seq = generation.current;
-    setBusy(true);
-    setMessage("");
+  return (
+    <div className="notice" role="status">
+      <strong>
+        {labels[draft.state] || draft.state} · {draft.accountName}
+      </strong>
+      {draft.message && <p>{draft.message}</p>}
+      {draft.mediaId && <p>草稿回执 {draft.mediaId}</p>}
+      {draft.state !== "saved" &&
+        !["queued", "running"].includes(draft.jobState) && (
+          <div className="button-row">
+            <button
+              className="btn secondary"
+              disabled={busy}
+              onClick={() => retry()}
+            >
+              核对并继续保存
+            </button>
+            {["unknown", "submitting"].includes(draft.state) &&
+              !draft.mediaId && (
+                <button className="text-link" onClick={() => retry(true)}>
+                  确认后台无此草稿后重送
+                </button>
+              )}
+          </div>
+        )}
+      {error && <p>{error}</p>}
+    </div>
+  );
+}
+
+export function WechatEditor({ go, id, data, route }: any) {
+  const params = new URLSearchParams(route.split("?")[1] || ""),
+    user = data.user.id;
+  const [content, setContent] = useState<Content>(blank),
+    [ready, setReady] = useState(false),
+    [dirty, setDirty] = useState(false);
+  const [html, setHtml] = useState(""),
+    [layoutReady, setLayoutReady] = useState(false),
+    [status, setStatus] = useState(""),
+    [error, setError] = useState("");
+  const [record, setRecord] = useState<any>(null),
+    [frozen, setFrozen] = useState<any>(null),
+    [account, setAccount] = useState<any>(null),
+    [connect, setConnect] = useState(false);
+  const [library, setLibrary] = useState<any[]>([]),
+    [notes, setNotes] = useState<any[]>([]),
+    [drafts, setDrafts] = useState<any[]>([]);
+  const [source, setSource] = useState<any>(null);
+  const [menu, setMenu] = useState(""),
+    [mobile, setMobile] = useState("write"),
+    [busy, setBusy] = useState(false),
+    [conflict, setConflict] = useState(false);
+  const model = useRef({
+    id: "",
+    revision: 0,
+    current: blank,
+    saved: blank,
+    writing: null as Promise<void> | null,
+    timer: undefined as ReturnType<typeof setTimeout> | undefined,
+    live: true,
+    blocked: false,
+    generation: 0,
+  });
+  const m = model.current;
+  const localKey = () => "ecu-wechat-pending:" + user + ":" + m.id;
+  function remember() {
     try {
-      const d = await post("/wechat/drafts", {
-        previewId: preview.id,
-        accountId: connection.id,
-      });
-      if (seq !== generation.current) return;
-      setDraft(d);
-      remember(preview, d);
-      setHistory((h) => [d, ...h.filter((x) => x.id !== d.id)]);
+      sessionStorage.setItem(
+        localKey(),
+        JSON.stringify({ revision: m.revision, content: m.current }),
+      );
+    } catch {
+      /* server autosave remains available */
+    }
+  }
+  function changed() {
+    return m.current !== m.saved;
+  }
+  function markRoute(aid: string) {
+    window.history.replaceState(
+      window.history.state,
+      "",
+      "#wechat?article=" + encodeURIComponent(aid),
+    );
+  }
+  async function render(value: Content, revision: number) {
+    const generation = ++m.generation;
+    if (!value.title && !value.body) {
+      if (m.live) {
+        setHtml("");
+        setLayoutReady(false);
+      }
+      return;
+    }
+    try {
+      const result = await api(
+        endpoint + "/" + m.id + "/layout?revision=" + revision,
+      );
+      if (m.live && generation === m.generation && m.current === value) {
+        setHtml(result.previewHtml);
+        setLayoutReady(true);
+      }
     } catch (e: any) {
-      if (seq !== generation.current) return;
-      setMessage(e.message);
-      if (e.code === "WECHAT_CONNECTION_CHANGED") {
+      if (m.live && generation === m.generation && m.current === value) {
+        setError(e.message);
+        setLayoutReady(false);
+      }
+    }
+  }
+  function flush(): Promise<void> {
+    clearTimeout(m.timer);
+    if (m.writing) return m.writing;
+    if (m.blocked || !changed()) return Promise.resolve();
+    m.writing = (async () => {
+      while (changed() && !m.blocked) {
+        const value = m.current;
         try {
-          const c = await api("/wechat/connection");
-          if (seq === generation.current) setConnection(c);
-        } catch { /* Keep the original actionable error. */ }
+          const r = await put(endpoint + "/" + m.id, {
+            revision: m.revision,
+            content: value,
+          });
+          m.revision = r.revision;
+          m.saved = value;
+          if (!changed()) {
+            try {
+              sessionStorage.removeItem(localKey());
+            } catch {}
+            if (m.live) {
+              setDirty(false);
+              setStatus("已保存到工作台");
+              void render(value, r.revision);
+            }
+          } else remember();
+        } catch (e: any) {
+          if (e.code === "VERSION_CONFLICT") m.blocked = true;
+          if (m.live) {
+            setError(e.message);
+            setConflict(m.blocked);
+            setStatus("尚未保存");
+          }
+          break;
+        }
       }
-    } finally {
-      if (seq === generation.current) setBusy(false);
-    }
+    })().finally(() => {
+      m.writing = null;
+    });
+    return m.writing;
   }
-  async function resume(d: any, confirmedAbsent = false) {
-    const seq = generation.current;
-    setBusy(true);
+  function edit(patch: Partial<Content>) {
+    m.current = { ...m.current, ...patch };
+    m.generation++;
+    setContent(m.current);
+    setDirty(true);
+    setLayoutReady(false);
+    setRecord(null);
+    setStatus("正在保存…");
+    if (!m.blocked) setError("");
+    remember();
+    clearTimeout(m.timer);
+    m.timer = setTimeout(() => void flush(), 260);
+  }
+  async function navigate(to: string) {
+    await flush();
+    if (changed()) {
+      setError("此稿还有未保存的修改，请先重试或另存副本。");
+      return;
+    }
+    go(to);
+  }
+  useEffect(() => {
+    m.live = true;
+    let active = true;
+    async function start() {
+      const pid = params.get("preview"),
+        did = params.get("draft");
+      const [a, recent, history] = await Promise.all([
+        api("/wechat/connection"),
+        api(endpoint),
+        api("/wechat/drafts"),
+      ]);
+      if (!active) return;
+      setAccount(a);
+      setLibrary(recent);
+      setDrafts(history);
+      if (did && pid) {
+        const [d, p] = await Promise.all([
+          api("/wechat/drafts/" + encodeURIComponent(did)),
+          api("/wechat/previews/" + encodeURIComponent(pid)),
+        ]);
+        if (!active) return;
+        if (d.previewId !== p.id || p.noteId !== id)
+          throw new Error("保存记录与文章不匹配。");
+        setRecord(d);
+        setFrozen(p);
+        setReady(true);
+        return;
+      }
+      const aid =
+        params.get("article") || (!id && !params.has("new") && recent[0]?.id);
+      let r;
+      if (id)
+        r = await post(endpoint + "/from-note", {
+          noteId: id,
+          previewId: pid || undefined,
+        });
+      else if (aid) {
+        try {
+          r = await api(endpoint + "/" + encodeURIComponent(aid));
+        } catch (e: any) {
+          if (
+            e.status !== 404 ||
+            !sessionStorage.getItem("ecu-wechat-pending:" + user + ":" + aid)
+          )
+            throw e;
+        }
+      }
+      if (!active) return;
+      m.id = r?.id || aid || uid();
+      m.revision = r?.revision || 0;
+      m.saved = m.current = r?.content || { ...blank };
+      if (r || aid) markRoute(m.id);
+      setRecord(r?.draft || null);
+      setSource(r?.source || null);
+      let pending;
+      try {
+        pending = JSON.parse(sessionStorage.getItem(localKey()) || "null");
+      } catch {}
+      setReady(true);
+      setContent(m.current);
+      setStatus(r ? "已保存到工作台" : "");
+      if (
+        pending &&
+        JSON.stringify(pending.content) !== JSON.stringify(m.saved)
+      ) {
+        m.blocked = pending.revision !== m.revision;
+        setConflict(m.blocked);
+        edit(pending.content);
+        if (m.blocked)
+          setError("已保留本页未保存的文字。另一页面已修改原稿，请另存副本。");
+      } else if (r) void render(m.current, m.revision);
+    }
+    start().catch((e) => {
+      if (active) setError(e.message);
+    });
+    const before = (event: BeforeUnloadEvent) => {
+      if (changed()) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", before);
+    return () => {
+      active = false;
+      m.live = false;
+      clearTimeout(m.timer);
+      void flush();
+      window.removeEventListener("beforeunload", before);
+    };
+  }, []);
+  function update(patch: Partial<Content>) {
+    if (!m.revision && !changed()) markRoute(m.id);
+    edit(patch);
+  }
+  async function openMenu(which: string) {
+    if (which === menu) {
+      setMenu("");
+      return;
+    }
     try {
-      const next = await post("/wechat/drafts/" + d.id + "/retry", { confirmedAbsent });
-      if (seq !== generation.current) return;
-      setDraft(next);
-      setMessage("已开始核对与恢复。");
+      if (which === "notes") setNotes(await api("/notes"));
+      if (which === "recent") {
+        setLibrary(await api(endpoint));
+        setDrafts(await api("/wechat/drafts"));
+      }
+      setMenu(which);
     } catch (e: any) {
-      if (seq === generation.current) setMessage(e.message);
-    } finally {
-      if (seq === generation.current) setBusy(false);
+      setError(e.message);
     }
   }
   async function openRecord(d: any) {
-    const seq = generation.current;
-    setBusy(true);
     try {
       const p = await api("/wechat/previews/" + d.previewId);
-      if (seq !== generation.current) return;
-      go("wechat/" + p.noteId + "?preview=" + p.id + "&draft=" + d.id);
-    } catch (e: any) { if (seq === generation.current) setMessage(e.message); }
-    finally { if (seq === generation.current) setBusy(false); }
+      await navigate(
+        "wechat/" + p.noteId + "?preview=" + p.id + "&draft=" + d.id,
+      );
+    } catch (e: any) {
+      setError(e.message);
+    }
   }
-  const working = busy || ["queued", "running"].includes(draft?.jobState);
+  async function saveRemote() {
+    if (!layoutReady || dirty || !account?.connected || busy || record) return;
+    if (!confirm("将当前预览保存到「" + account.name + "」的公众号草稿箱？"))
+      return;
+    setBusy(true);
+    try {
+      setRecord(
+        await post(endpoint + "/" + m.id + "/draft", {
+          revision: m.revision,
+          accountId: account.id,
+          confirmed: true,
+        }),
+      );
+    } catch (e: any) {
+      setError(e.message);
+      if (e.code === "WECHAT_CONNECTION_CHANGED")
+        setAccount(await api("/wechat/connection"));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveCopy() {
+    try {
+      const copy = await put(endpoint + "/" + uid(), {
+        revision: 0,
+        content: m.current,
+        copyFrom: m.id,
+      });
+      sessionStorage.removeItem(localKey());
+      m.saved = m.current;
+      go("wechat?article=" + copy.id);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+  async function copy() {
+    try {
+      const result = await copyRichHtml(html);
+      setStatus(
+        result === "rich"
+          ? "已复制图文排版"
+          : "已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。",
+      );
+    } catch {
+      setError("浏览器未允许复制，可下载 HTML。");
+    }
+  }
+  function download() {
+    const url = URL.createObjectURL(
+      new Blob([html], { type: "text/html;charset=utf-8" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (content.title || "公众号文章") + ".html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
   return (
-    <>
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">OUTPUT · WECHAT</span>
-          <h1>公众号排版</h1>
-          <p>选一篇笔记 → 看预览 → 保存到公众号草稿箱。</p>
-        </div>
-      </div>
-      <div className="wechat-account-bar">
-        <span>
-          {connection?.connected
-            ? `保存到：${connection.name}`
-            : "尚未连接公众号；可以先排版、预览。"}
-        </span>
-        {data?.user?.role === "admin" ? (
+    <div className="wechat-studio">
+      <header className="page-heading">
+        <h1>公众号编辑器</h1>
+        <div className="button-row">
           <button
-            className="text-link"
-            onClick={() => setConnectOpen(!connectOpen)}
+            className="btn secondary"
+            disabled={!ready || busy}
+            onClick={() => navigate("wechat?new=" + uid())}
           >
-            {connection?.connected ? "管理连接" : "连接公众号"}
+            <FilePlus2 />
+            新文章
           </button>
-        ) : (
-          !connection?.connected && <span>请管理员在设置中连接公众号。</span>
-        )}
-      </div>
-      {connectOpen && (
-        <WechatConnection
-          onChange={(c: any) => {
-            setConnection(c);
-            setConnectOpen(false);
-          }}
-        />
-      )}
-      <div className="production-layout wechat-layout">
-        <section className="panel note-editor wechat-setup">
-          <h2>1. 选择笔记</h2>
-          <label className="field">
-            知识库中的笔记
-            <select
-              aria-label="排版笔记"
-              disabled={working}
-              value={selected}
-              onChange={(e) => {
-                go("wechat" + (e.target.value ? "/" + e.target.value : ""));
+          <button
+            className="btn secondary"
+            disabled={!ready || busy}
+            aria-expanded={menu === "notes"}
+            onClick={() => openMenu("notes")}
+          >
+            <NotebookPen />
+            从笔记导入
+          </button>
+          <button
+            className="btn secondary"
+            disabled={!ready || busy}
+            aria-expanded={menu === "recent"}
+            onClick={() => openMenu("recent")}
+          >
+            <History />
+            最近稿件
+          </button>
+        </div>
+      </header>
+      {error && (
+        <div className="notice" role="alert">
+          {error}{" "}
+          {dirty && !conflict && (
+            <button className="text-link" onClick={() => void flush()}>
+              重试保存
+            </button>
+          )}{" "}
+          {!dirty && ready && !frozen && !layoutReady && !!content.body && (
+            <button
+              className="text-link"
+              onClick={() => {
+                setError("");
+                void render(m.current, m.revision);
               }}
             >
-              <option value="">请选择一篇笔记</option>
-              {notes.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          {!notes.length && (
-            <p>
-              先把资料保存到知识库，或撰写一篇笔记。
-              <button className="text-link" onClick={() => go("notes")}>
-                打开知识库
-              </button>
-            </p>
+              重试预览
+            </button>
+          )}{" "}
+          {conflict && (
+            <button className="text-link" onClick={saveCopy}>
+              另存为副本
+            </button>
           )}
-          <p className="muted">
-            封面和摘要会自动准备。正文和配图沿用笔记内容。
-          </p>
-          <label className="field">
-            公众号主题
-            <select
-              aria-label="公众号主题"
-              disabled={working}
-              value={palette}
-              onChange={(e) => {
-                setPalette(e.target.value);
-                invalidate();
-              }}
+        </div>
+      )}
+      {menu && (
+        <section className="panel manuscript-picker">
+          <h2>{menu === "notes" ? "从笔记导入" : "本地稿件"}</h2>
+          {menu === "notes" ? (
+            notes.length ? (
+              notes.map((n) => (
+                <button key={n.id} onClick={() => navigate("wechat/" + n.id)}>
+                  {n.title}
+                </button>
+              ))
+            ) : (
+              <p>还没有笔记，可以直接写新文章。</p>
+            )
+          ) : (
+            <>
+              {library.length ? (
+                library.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      setMenu("");
+                      void navigate("wechat?article=" + n.id);
+                    }}
+                  >
+                    {n.title || "未命名文章"}
+                  </button>
+                ))
+              ) : (
+                <p>还没有本地稿件。</p>
+              )}
+              {drafts.length > 0 && (
+                <>
+                  <h2>公众号保存记录</h2>
+                  {drafts.map((d) => (
+                    <button
+                      className="wechat-history-row"
+                      key={d.id}
+                      onClick={() => openRecord(d)}
+                    >
+                      {d.title} · {d.accountName} · {labels[d.state] || d.state}
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </section>
+      )}
+      {frozen ? (
+        <section className="panel">
+          <h2>{frozen.title}</h2>
+          <DraftRecord draft={record} onChange={setRecord} />
+          <button
+            className="btn secondary"
+            onClick={() =>
+              go("wechat/" + frozen.noteId + "?preview=" + frozen.id)
+            }
+          >
+            以此稿继续编辑
+          </button>
+          <iframe
+            className="wechat-preview"
+            title="已保存的手机排版"
+            sandbox=""
+            srcDoc={frozen.previewHtml}
+          />
+        </section>
+      ) : ready ? (
+        <>
+          <div className="manuscript-controls">
+            <label>
+              主题{" "}
+              <select
+                aria-label="公众号主题"
+                value={content.palette}
+                disabled={busy}
+                onChange={(e) => update({ palette: e.target.value })}
+              >
+                {Object.entries(wechatThemeLabels).map(([k, name]) => (
+                  <option key={k} value={k}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {source && (
+              <button
+                className="text-link"
+                onClick={() => navigate(source.route)}
+              >
+                {source.label}
+              </button>
+            )}
+            <span className="manuscript-save-state" role="status">
+              {status}
+            </span>
+            <button
+              className="btn secondary"
+              aria-label="复制图文排版"
+              disabled={!layoutReady}
+              onClick={copy}
             >
-              <option value="green">书院绿</option>
-              <option value="blue">教育蓝</option>
-              <option value="ink">简洁黑白</option>
-              {Object.entries(articleProfiles).map(([id, theme]) =>
-                <option value={id} key={id}>{theme.name}</option>)}
-            </select>
-          </label>
-          <details className="wechat-options">
-            <summary>调整标题、摘要和封面</summary>
-            <fieldset disabled={working}>
+              <Copy />
+              复制图文
+            </button>
+            <button
+              className="btn secondary"
+              aria-label="下载 HTML"
+              disabled={!layoutReady}
+              onClick={download}
+            >
+              <Download />
+              下载 HTML
+            </button>
+          </div>
+          <div className="manuscript-mobile" aria-label="编辑视图">
+            <button
+              aria-pressed={mobile === "write"}
+              onClick={() => setMobile("write")}
+            >
+              <PencilLine />
+              写稿
+            </button>
+            <button
+              aria-pressed={mobile === "preview"}
+              onClick={() => setMobile("preview")}
+            >
+              <Smartphone />
+              手机预览
+            </button>
+          </div>
+          <div className="manuscript-panes" data-mobile={mobile}>
+            <section className="panel manuscript-input">
               <label className="field">
                 文章标题
                 <input
                   aria-label="文章标题"
-                  value={title}
-                  placeholder={
-                    note?.title
-                      ? Array.from(note.title as string)
-                          .slice(0, 32)
-                          .join("")
-                      : "自动使用笔记标题，最多32字"
+                  value={content.title}
+                  disabled={busy}
+                  placeholder="写个标题"
+                  onChange={(e) =>
+                    update({
+                      title: Array.from(e.target.value).slice(0, 32).join(""),
+                    })
                   }
-                  onChange={(e) => {
-                    setTitle(Array.from(e.target.value).slice(0, 32).join(""));
-                    invalidate();
-                  }}
                 />
               </label>
-              <label className="field">
-                文章摘要
-                <textarea
-                  aria-label="文章摘要"
-                  value={summary}
-                  placeholder="默认自动摘取正文，可在这里修改"
-                  onChange={(e) => {
-                    setSummary(
-                      Array.from(e.target.value).slice(0, 120).join(""),
-                    );
-                    invalidate();
-                  }}
+              <fieldset disabled={busy}>
+                <MarkdownSourceEditor
+                  text={content.body}
+                  label="公众号 Markdown 正文"
+                  imageLabel="选择文章图片"
+                  placeholder="从这里开始写正文，或粘贴 Markdown…"
+                  maxLength={100000}
+                  onChange={(body) => update({ body })}
                 />
-              </label>
-
-              <label className="field">
-                替换封面（可选）
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    invalidate();
-                    const seq = generation.current;
-                    setBusy(true);
-                    try {
-                      const uploaded = await upload(f, "/media/uploads");
-                      if (seq === generation.current) setCover(uploaded);
-                    } catch (e: any) {
-                      if (seq === generation.current) setMessage(e.message);
-                    } finally {
-                      if (seq === generation.current) setBusy(false);
-                    }
-                  }}
+              </fieldset>
+              <details className="wechat-options">
+                <summary>摘要与封面</summary>
+                <label className="field">
+                  文章摘要
+                  <textarea
+                    aria-label="文章摘要"
+                    maxLength={120}
+                    value={content.summary}
+                    placeholder="默认取自正文"
+                    disabled={busy}
+                    onChange={(e) => update({ summary: e.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  替换封面
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={busy}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setBusy(true);
+                      try {
+                        const a = await upload(f, "/media/uploads");
+                        if (m.live) update({ coverAssetId: a.id });
+                      } catch (e: any) {
+                        if (m.live) setError(e.message);
+                      } finally {
+                        if (m.live) setBusy(false);
+                      }
+                    }}
+                  />
+                </label>
+                {content.coverAssetId && (
+                  <button
+                    className="text-link"
+                    onClick={() => update({ coverAssetId: "" })}
+                  >
+                    恢复自动封面
+                  </button>
+                )}
+              </details>
+            </section>
+            <section className="panel manuscript-phone">
+              <h2>
+                <Smartphone />
+                手机预览
+              </h2>
+              {html ? (
+                <iframe
+                  title="公众号手机预览"
+                  sandbox=""
+                  className="wechat-preview"
+                  aria-busy={!layoutReady}
+                  srcDoc={html}
                 />
-              </label>
-              {cover && (
-                <button
-                  className="text-link"
-                  onClick={() => {
-                    setCover(null);
-                    invalidate();
-                  }}
-                >
-                  恢复自动封面
-                </button>
+              ) : (
+                <div className="manuscript-empty">
+                  写下标题或正文，即可查看排版。
+                </div>
               )}
-            </fieldset>
-          </details>
-          <div className="button-row">
-            <button
-              className="btn"
-              disabled={!note || working}
-              onClick={prepare}
-            >
-              {busy ? "正在准备…" : preview ? "重新生成预览" : "生成手机排版"}
-            </button>
-            {note && (
+            </section>
+          </div>
+          <div className="manuscript-output">
+            <span>
+              {account?.connected
+                ? "保存到：" + account.name
+                : "尚未连接公众号"}
+            </span>
+            {data.user.role === "admin" && (
               <button
-                className="btn secondary"
-                disabled={working}
-                onClick={() => go("notes/" + note.id + (preview ? "?wechatPreview=" + preview.id : ""))}
+                className="text-link"
+                onClick={() => setConnect(!connect)}
               >
-                编辑正文与配图
+                {account?.connected ? "管理连接" : "连接公众号"}
               </button>
             )}
-          </div>
-          {message && <p role="status">{message}</p>}
-        </section>
-        <section className="panel wechat-phone">
-          <h2>2. 手机预览</h2>
-          {preview ? (
-            <iframe
-              className="wechat-preview"
-              title="公众号手机预览"
-              sandbox=""
-              srcDoc={preview.previewHtml}
-            />
-          ) : (
-            <div className="wechat-empty">
-              选择笔记后点击「生成手机排版」，在这里检查最终图文。
-            </div>
-          )}
-        </section>
-        {preview && (
-          <section className="panel note-editor wechat-save-panel">
-            <h2>3. 保存草稿</h2>
-            <p>文章：{preview.title}</p>
-            <p className="muted">{preview.summary}</p>
-            {preview.warning && <p className="notice">{preview.warning}</p>}
             <button
               className="btn wechat-save"
-              disabled={working || !connection?.connected || Boolean(draft)}
-              onClick={save}
+              disabled={
+                busy ||
+                !account?.connected ||
+                !layoutReady ||
+                !content.body.trim() ||
+                !content.title.trim() ||
+                !!record
+              }
+              onClick={saveRemote}
             >
-              {draft?.state === "saved"
+              {record?.state === "saved"
                 ? "已保存到公众号草稿箱"
-                : working
-                  ? "正在保存，请稍候…"
-                  : `保存到${connection?.name ? "「" + connection.name + "」" : ""}草稿箱`}
+                : account?.connected
+                  ? "保存到「" + account.name + "」草稿箱"
+                  : "保存到公众号草稿箱"}
             </button>
-            <p className="muted">
-              这里只保存草稿。发布文章仍需在微信公众号后台确认。
-            </p>
-            {draft && (
-              <div className="notice" role="status">
-                <strong>{labels[draft.state] || "正在处理"}</strong>
-                {draft.message && <p>{draft.message}</p>}
-                {!working && draft.state !== "saved" && (
-                  <div className="button-row">
-                    <button
-                      className="btn secondary"
-                      onClick={() => resume(draft)}
-                    >
-                      {["unknown", "submitting", "verifying"].includes(
-                        draft.state,
-                      )
-                        ? "核对保存结果"
-                        : "重试保存"}
-                    </button>
-                    {["unknown", "submitting"].includes(draft.state) && (
-                      <button
-                        className="text-link"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              "请先打开微信公众号草稿箱检查。这篇文章确实不存在吗？只有确认不存在，才应重新保存，以免出现重复草稿。",
-                            )
-                          )
-                            void resume(draft, true);
-                        }}
-                      >
-                        我已确认草稿箱没有这篇，重新保存
-                      </button>
-                    )}
-                  </div>
-                )}
-                <a
-                  href="https://mp.weixin.qq.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  打开微信公众号后台
-                </a>
-              </div>
-            )}
-            <details className="wechat-options">
-              <summary>下载或复制排版</summary>
-              <div className="button-row">
-                <a
-                  className="btn secondary"
-                  href={"/api/assets/" + preview.assetId}
-                  download={preview.name}
-                >
-                  下载 HTML
-                </a>
-                <button
-                  className="btn secondary"
-                  onClick={async () => {
-                    try {
-                      const result = await copyRichHtml(preview.previewHtml);
-                      if (result === "rich") {
-                        setMessage(
-                          "已复制排版。手动粘贴时请检查配图；直接保存草稿会自动上传配图。",
-                        );
-                      } else {
-                        setMessage("已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。");
-                      }
-                    } catch {
-                      setMessage("浏览器未允许复制，请下载 HTML。");
-                    }
-                  }}
-                >
-                  复制图文排版
-                </button>
-              </div>
-            </details>
-          </section>
-        )}
-      </div>
-      {history.length > 0 && (
-        <section className="panel wechat-history">
-          <h2>最近的保存记录</h2>
-          <p className="muted">
-            关闭页面不会丢失进度。点击记录可以继续查看或恢复保存。
-          </p>
-          {history.map((d) => (
-            <button
-              className="wechat-history-row"
-              key={d.id}
-              disabled={working}
-              onClick={() => openRecord(d)}
-            >
-              <span>
-                <strong>{d.title}</strong>
-                <small>
-                  {d.accountName} · {new Date(d.createdAt).toLocaleString()}
-                </small>
-              </span>
-              <span>{labels[d.state] || "正在处理"}</span>
-            </button>
-          ))}
-        </section>
+          </div>
+          {record && <DraftRecord draft={record} onChange={setRecord} />}
+          {connect && (
+            <WechatConnection
+              onChange={(c: any) => {
+                setAccount(c);
+                setConnect(false);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        !error && <p role="status">正在打开编辑器…</p>
       )}
-    </>
+    </div>
   );
 }

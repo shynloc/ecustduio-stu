@@ -188,6 +188,7 @@ export function ChatAdaptation({ cid, message, source, refresh }: any) {
                 srcDoc={preview.previewHtml}
               />
               <div className="button-row">
+                <a className="btn secondary" href={"#wechat/"+card.noteId+"?preview="+card.previewId}>编辑文章</a>
                 <button
                   className="btn secondary"
                   onClick={() =>

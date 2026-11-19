@@ -32,7 +32,7 @@ if (!db.prepare("SELECT 1 FROM migrations WHERE version=1").get()) {
 }
 export const now = () => new Date().toISOString();
 export function migrateExtensions() {
- const files=['002_accounts_explore.sql','003_media.sql','004_workflows.sql','005_knowledge.sql','006_pipeline.sql','007_wechat.sql'];
+ const files=['002_accounts_explore.sql','003_media.sql','004_workflows.sql','005_knowledge.sql','006_pipeline.sql','007_wechat.sql','008_wechat_manuscripts.sql'];
  for(const [i,file] of files.entries()){const version=i+2;if(db.prepare('SELECT 1 FROM migrations WHERE version=?').get(version))continue;db.exec('BEGIN IMMEDIATE');try{db.exec(readFileSync(join(root,'migrations',file),'utf8'));db.prepare('INSERT INTO migrations VALUES(?,?)').run(version,new Date().toISOString());db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}}
 }
 migrateExtensions();

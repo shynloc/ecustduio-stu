@@ -17,6 +17,7 @@ import {
   requireRow,
   audit,
 } from "./db.js";
+import { registerManuscripts } from "./wechat-manuscripts.js";
 import { owned, noteView } from "./explore.js";
 import { asset, assetBuffer } from "./domain.js";
 import { checkMediaAsset, grantMediaAsset } from "./media-access.js";
@@ -93,7 +94,7 @@ export function draftView(d: any) {
     updatedAt: d.updated_at,
   };
 }
-async function jpeg(assetId: string, user: any) {
+async function jpegBytes(assetId: string, user: any) {
   checkMediaAsset(assetId, user);
   const { a, data } = assetBuffer(assetId);
   if (
@@ -116,25 +117,36 @@ async function jpeg(assetId: string, user: any) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
     const bytes = canvas.toBuffer("image/jpeg", 85);
-    if (bytes.length < 950000) {
-      const result = asset(bytes, "公众号配图.jpg", "image/jpeg", "wechat");
-      grantMediaAsset(result.id, user.id);
-      return { id: result.id, hash: result.hash };
-    }
+    if (bytes.length < 950000) return bytes;
     ratio *= 0.7;
   }
   err("WECHAT_IMAGE", "此配图压缩后仍过大，请更换图片。", 422);
 }
-function autoCover(title: string, palette: WechatTheme, user: any) {
+function coverBytes(title: string, palette: WechatTheme) {
   const canvas = createCanvas(900, 383),
     ctx = canvas.getContext("2d");
   ctx.fillStyle =
-    (palette === "milestone-darkcode-dark" ? articleProfile(palette)?.bg : articleProfile(palette)?.heading) ?? (palette === "blue" ? "#193e62" : palette === "ink" ? "#252727" : "#23483d");
+    (palette === "milestone-darkcode-dark"
+      ? articleProfile(palette)?.bg
+      : articleProfile(palette)?.heading) ??
+    (palette === "blue"
+      ? "#193e62"
+      : palette === "ink"
+        ? "#252727"
+        : "#23483d");
   ctx.fillRect(0, 0, 900, 383);
   ctx.fillStyle = "#c7d7b1";
   ctx.fillRect(55, 65, 54, 5);
   ctx.fillStyle = "#ffffff";
-  const family = ["Microsoft YaHei", "PingFang SC", "Heiti SC", "Hiragino Sans GB", "Noto Sans CJK SC", "SimSun", "Arial Unicode MS"].find(name => GlobalFonts.has(name));
+  const family = [
+    "Microsoft YaHei",
+    "PingFang SC",
+    "Heiti SC",
+    "Hiragino Sans GB",
+    "Noto Sans CJK SC",
+    "SimSun",
+    "Arial Unicode MS",
+  ].find((name) => GlobalFonts.has(name));
   const face = family ? JSON.stringify(family) : "sans-serif";
   ctx.font = "bold 44px " + face;
   const chars = Array.from(title);
@@ -143,19 +155,15 @@ function autoCover(title: string, palette: WechatTheme, user: any) {
   ctx.font = "18px " + face;
   ctx.fillStyle = "#d2ded6";
   ctx.fillText("EcuStudio · 教创工作台", 55, 347);
-  const a = asset(
-    canvas.toBuffer("image/jpeg", 90),
-    "公众号自动封面.jpg",
-    "image/jpeg",
-    "wechat",
-  );
-  grantMediaAsset(a.id, user.id);
-  return { id: a.id, hash: a.hash };
+  return canvas.toBuffer("image/jpeg", 90);
 }
-export async function prepareWechat(noteId: string, b: any, user: any) {
-  const note = noteView(owned("notes", noteId, user));
-  if (note.revision !== b.revision)
-    err("VERSION_CONFLICT", "笔记已更新，请重新载入笔记并预览。", 409);
+
+export async function articleLayout(
+  note: any,
+  b: any,
+  user: any,
+  freeze = false,
+) {
   const title = b.title || cut(note.title, 32),
     summary =
       b.summary ||
@@ -167,61 +175,102 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
           .trim(),
         120,
       );
-  const palette = b.palette || "green",
-    cover = b.coverAssetId
-      ? await jpeg(b.coverAssetId, user)
-      : autoCover(title, palette, user);
+  const palette = b.palette || "green";
   const $ = cheerio.load(
-      wechatHtml({ ...note, title, summary: b.summary, coverAssetId: cover.id }, palette),
-      null,
-      false,
-    ),
-    images: any[] = [];
-  const imageIds = Array.from(
-    new Set(
+    wechatHtml({ ...note, title, summary: b.summary }, palette),
+    null,
+    false,
+  );
+  const sentinel = "generated-cover";
+  const coverNode = cheerio.load(
+    '<img style="width:100%;height:auto;display:block">',
+    null,
+    false,
+  )("img");
+  // Keep the generated cover distinct from user-supplied image URLs.
+  const nodes = $("img").toArray();
+  if (nodes.some((el) => $(el).attr("src") === "/api/assets/" + sentinel))
+    err("WECHAT_IMAGE", "图片不存在", 422);
+  coverNode.attr("src", "/api/assets/" + (b.coverAssetId || sentinel));
+  $("h1").first().before(coverNode);
+  const ids = [
+    ...new Set(
       $("img")
         .toArray()
-        .map((img) => ($(img).attr("src") || "").split("/").pop()!),
+        .map((el) => $(el).attr("src")!.split("/").pop()!),
     ),
-  );
-  if (imageIds.length > 30)
-    err("WECHAT_IMAGE_LIMIT", "这篇笔记配图较多，请拆成两篇后再排版。", 422);
+  ];
+  if (ids.length > 30)
+    err("WECHAT_IMAGE_LIMIT", "文章配图较多，请拆成两篇后排版。", 422);
+  const images: any[] = [],
+    embedded = new Map<string, Buffer>(),
+    destinations = new Map<string, string>();
   let total = 0;
-  for (const original of imageIds) {
-    checkMediaAsset(original, user);
-    total += assetBuffer(original).data.length;
+  for (const original of ids) {
+    if (original !== sentinel) {
+      checkMediaAsset(original, user);
+      total += requireRow(
+        get("SELECT size FROM assets WHERE id=?", original),
+      ).size;
+    }
     if (total > 20 * 1048576)
       err("WECHAT_IMAGE_LIMIT", "本篇配图超过20MB，请减少配图后预览。", 422);
-    const image = original === cover.id ? cover : await jpeg(original, user);
-    images.push(image);
-    $("img").each((_, el) => {
-      if ($(el).attr("src") === "/api/assets/" + original)
-        $(el).attr("src", "/api/assets/" + image.id);
-    });
+    const bytes =
+      original === sentinel
+        ? coverBytes(title, palette)
+        : await jpegBytes(original, user);
+    let dest = original;
+    if (freeze) {
+      const a = asset(
+        bytes,
+        original === sentinel ? "公众号自动封面.jpg" : "公众号配图.jpg",
+        "image/jpeg",
+        "wechat",
+      );
+      grantMediaAsset(a.id, user.id);
+      images.push({ id: a.id, hash: a.hash });
+      dest = a.id;
+      destinations.set(original, dest);
+    }
+    embedded.set(dest, bytes);
   }
+  if (freeze)
+    $("img").each((_, el) => {
+      const original = $(el).attr("src")!.split("/").pop()!;
+      $(el).attr("src", "/api/assets/" + destinations.get(original));
+    });
+  const cover = images[0];
   const html = $.html();
-  if (Array.from(html).length > 19000 || Buffer.byteLength(html) > 900000)
+  if (
+    freeze &&
+    (Array.from(html).length > 19000 || Buffer.byteLength(html) > 900000)
+  )
     err(
       "WECHAT_ARTICLE_LIMIT",
       "这篇文章超过微信长度限制，请拆成两篇笔记后排版。",
       422,
     );
-  for (const image of images) {
-    const a = assetBuffer(image.id);
-    $("img").each((_, el) => {
-      if ($(el).attr("src") === "/api/assets/" + image.id)
-        $(el).attr(
-          "src",
-          "data:image/jpeg;base64," + a.data.toString("base64"),
-        );
-    });
-  }
+  $("img").each((_, el) => {
+    const key = $(el).attr("src")!.split("/").pop()!;
+    $(el).attr(
+      "src",
+      "data:image/jpeg;base64," + embedded.get(key)!.toString("base64"),
+    );
+  });
+  const previewHtml =
+    '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body>' +
+    $.html() +
+    "</body></html>";
+  return { title, summary, palette, html, images, cover, previewHtml };
+}
+export async function prepareWechat(noteId: string, b: any, user: any) {
+  const note = noteView(owned("notes", noteId, user));
+  if (note.revision !== b.revision)
+    err("VERSION_CONFLICT", "笔记已更新，请重新载入笔记并预览。", 409);
+  const { title, summary, palette, html, images, cover, previewHtml } =
+    await articleLayout(note, b, user, true);
   const offline = asset(
-    Buffer.from(
-      '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body>' +
-        $.html() +
-        "</body></html>",
-    ),
+    Buffer.from(previewHtml),
     title + "-公众号排版.html",
     "text/html",
     "wechat",
@@ -279,55 +328,68 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
   return previewView(get("SELECT * FROM wechat_previews WHERE id=?", pid));
 }
 
-export function enqueueWechatDraft(b:{previewId:string;accountId:string},user:any,enqueue:any){
-    const p = own("wechat_previews", b.previewId, user),
-      a = get("SELECT * FROM wechat_accounts WHERE enabled=1");
-    if (!a || a.id !== b.accountId)
-      err(
-        "WECHAT_CONNECTION_CHANGED",
-        "公众号连接已变化，请刷新页面确认要保存到哪个公众号。",
-        409,
-      );
-    const prior = get(
-      "SELECT * FROM wechat_drafts WHERE preview_id=? AND account_id=?",
+export function checkPendingWechatDraft(
+  noteId: string,
+  accountId: string,
+  previewId = "",
+) {
+  const other = get(
+    `SELECT d.id FROM wechat_drafts d JOIN wechat_previews p ON p.id=d.preview_id JOIN jobs j ON j.id=d.job_id
+      LEFT JOIN wechat_manuscripts m ON m.note_id=p.note_id
+      WHERE coalesce(m.origin_note_id,p.note_id)=? AND d.account_id=? AND d.preview_id<>? AND (j.state IN ('queued','running') OR d.state IN ('submitting','unknown','verifying')) LIMIT 1`,
+    get("SELECT origin_note_id FROM wechat_manuscripts WHERE note_id=?", noteId)
+      ?.origin_note_id || noteId,
+    accountId,
+    previewId,
+  );
+  if (other)
+    err(
+      "RECONCILE_FIRST",
+      "同篇文章有另一版正在保存或回执待核对。请先核对那一版的草稿记录。",
+      409,
+    );
+}
+export function enqueueWechatDraft(
+  b: { previewId: string; accountId: string },
+  user: any,
+  enqueue: any,
+) {
+  const p = own("wechat_previews", b.previewId, user),
+    a = get("SELECT * FROM wechat_accounts WHERE enabled=1");
+  if (!a || a.id !== b.accountId)
+    err(
+      "WECHAT_CONNECTION_CHANGED",
+      "公众号连接已变化，请刷新页面确认要保存到哪个公众号。",
+      409,
+    );
+  const prior = get(
+    "SELECT * FROM wechat_drafts WHERE preview_id=? AND account_id=?",
+    p.id,
+    a.id,
+  );
+  if (prior) return draftView(own("wechat_drafts", prior.id, user));
+  checkPendingWechatDraft(p.note_id, b.accountId, b.previewId);
+  if (owned("notes", p.note_id, user).revision !== p.revision)
+    err("VERSION_CONFLICT", "笔记已更新，请重新预览后保存。", 409);
+  const did = id();
+  tx(() => {
+    run(
+      "INSERT INTO wechat_drafts(id,owner_id,preview_id,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+      did,
+      user.id,
       p.id,
       a.id,
+      now(),
+      now(),
     );
-    if (prior) return draftView(own("wechat_drafts", prior.id, user));
-    const other = get(
-      `SELECT d.id FROM wechat_drafts d JOIN wechat_previews p ON p.id=d.preview_id JOIN jobs j ON j.id=d.job_id
-      WHERE p.note_id=? AND d.account_id=? AND d.preview_id<>? AND (j.state IN ('queued','running') OR d.state IN ('submitting','unknown','verifying')) LIMIT 1`,
-      p.note_id,
-      b.accountId,
-      b.previewId,
+    const j = enqueue(
+      "wechat-draft",
+      { draftId: did, actorId: user.id },
+      "wechat:" + did,
     );
-    if (other)
-      err(
-        "RECONCILE_FIRST",
-        "同篇文章有另一版正在保存或回执待核对。请先核对那一版的草稿记录。",
-        409,
-      );
-    if (owned("notes", p.note_id, user).revision !== p.revision)
-      err("VERSION_CONFLICT", "笔记已更新，请重新预览后保存。", 409);
-    const did = id();
-    tx(() => {
-      run(
-        "INSERT INTO wechat_drafts(id,owner_id,preview_id,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-        did,
-        user.id,
-        p.id,
-        a.id,
-        now(),
-        now(),
-      );
-      const j = enqueue(
-        "wechat-draft",
-        { draftId: did, actorId: user.id },
-        "wechat:" + did,
-      );
-      run("UPDATE wechat_drafts SET job_id=? WHERE id=?", j.id, did);
-    });
-    return draftView(get("SELECT * FROM wechat_drafts WHERE id=?", did));
+    run("UPDATE wechat_drafts SET job_id=? WHERE id=?", j.id, did);
+  });
+  return draftView(get("SELECT * FROM wechat_drafts WHERE id=?", did));
 }
 
 export async function registerWechatDrafts(
@@ -337,6 +399,7 @@ export async function registerWechatDrafts(
   client: WechatClient = officialWechat,
   secrets: Secrets = wechatSecrets,
 ) {
+  registerManuscripts(app,enqueue);
   app.get("/api/wechat/connection", async () => connection());
   app.post("/api/settings/wechat/connect", async (req: any) => {
     const b = z
