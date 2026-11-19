@@ -1,3 +1,12 @@
+import {TaskProgress} from './tasks/TaskProgress';
+import {CreationLauncher} from './creation/CreationLauncher';
+import {HtmlVideoLauncher} from './creation/HtmlVideoLauncher';
+import {ArrowUp,ArrowDown} from 'lucide-react';
+import {ProjectDraft} from './projects/ProjectDraft';
+import {DashboardStart} from './dashboard/DashboardStart';
+import {SourceDocument} from './documents/SourceDocument';
+import {DocumentReader} from './DocumentReader';
+import './experience.css';
 import {ProjectHtmlFilm} from "./ProjectHtmlFilm";
 import { workspaceNavigation, WorkspaceLinks, SectionLinks } from "./WorkspaceNavigation";
 import { ArtifactLibrary } from "./ArtifactLibrary";
@@ -607,6 +616,7 @@ function App({ onLogout }: any) {
           {page === "topics" && <Topics {...common} />}
           {page === "projects" && <Projects {...common} />}
           {page === "project" && <Project {...common} id={itemId} />}
+          {page === "html-video" && <HtmlVideoLauncher {...common}/>}
           {page === "library" && <LibraryPage {...common} />}
           {page === "make" && (
             <Production key={itemId} {...common} templateId={itemId} />
@@ -716,94 +726,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           </Button>
         }
       />
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="hero-kicker">
-            <span />
-            从事实出发，让创作更从容
-          </span>
-          <h2>
-            让每一份教育内容，
-            <br />
-            都有据可循<span className="orange">。</span>
-          </h2>
-          <p>
-            发现政策变化，梳理可信证据。
-            <br />
-            把一个好选题，写成值得分享的内容。
-          </p>
-          <div className="hero-actions">
-            <Button
-              onClick={() =>
-                go("input")
-              }
-            >
-              <Plus size={17} />
-              导入一份资料
-            </Button>
-            <button className="text-link" onClick={() => go("library")}>
-              开始内容创作 <ArrowRight size={17} />
-            </button>
-          </div>
-        </div>
-        {data.settings.theme === "obsidian" ? (
-          <div className="obsidian-constellation" aria-label="证据链导航">
-            <div className="evidence-orbit" />
-            <svg
-              className="evidence-links"
-              viewBox="0 0 360 260"
-              aria-hidden="true"
-            >
-              <path d="M80 55 C150 20 150 90 265 95 M265 95 C250 170 135 120 120 200 M120 200 C200 240 260 210 300 230" />
-            </svg>
-            {[
-              ["01 / SOURCE", "原文快照", "policies", FileText],
-              ["02 / EVIDENCE", "事实与核验", "policies", ShieldCheck],
-              ["03 / MASTER", "内容母稿", "projects", Layers],
-              ["04 / CREATE", "多元表达", "results", Files],
-            ].map(([label, title, page, Icon]: any, i) => (
-              <button
-                key={page + label}
-                className={"evidence-node node-" + i}
-                onClick={() => go(page)}
-              >
-                <small>{label}</small>
-                <strong>
-                  <Icon size={15} />
-                  {title}
-                  <ArrowUpRight size={13} />
-                </strong>
-              </button>
-            ))}
-            <span className="evidence-caption">EVERY CLAIM HAS A SOURCE.</span>
-          </div>
-        ) : (
-          <div className="hero-art" aria-hidden="true">
-            <div className="orbit orbit-one" />
-            <div className="orbit orbit-two" />
-            <span className="orbital-note">
-              SOURCE
-              <br />↓<br />
-              INSIGHT
-              <br />↓<br />
-              STORY
-            </span>
-            <div className="paper paper-back" />
-            <div className="paper paper-front">
-              <span className="paper-symbol">
-                <Leaf size={32} />
-              </span>
-              <span className="paper-line long" />
-              <span className="paper-line" />
-              <span className="paper-line short" />
-              <div className="paper-stamp">
-                <Check size={14} /> 有据可循
-              </div>
-            </div>
-            <span className="art-caption">RESEARCH INTO POSSIBILITY</span>
-          </div>
-        )}
-      </section>
+      <DashboardStart data={data} go={go}/>
       <div className="metrics">
         {[
           ["资料快照", data.counts.snapshots, "持续积累的研究资料", Radar],
@@ -816,14 +739,14 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           ["创作项目", data.counts.projects, "从选题走向作品", FolderOpen],
           ["已导出成果", data.counts.artifacts, "每一版都有迹可查", Files],
         ].map(([label, value, hint, Icon]: any) => (
-          <div className="metric" key={label}>
+          <button className="metric animated-metric" key={label} onClick={()=>go(label==="资料快照"||label==="待核验事实"?"policies":label==="创作项目"?"projects":"results")}>
             <div>
               <span>{label}</span>
               <Icon size={18} />
             </div>
             <strong>{String(value).padStart(2, "0")}</strong>
             <small>{hint}</small>
-          </div>
+          </button>
         ))}
       </div>
       <div className="dashboard-grid">
@@ -894,7 +817,7 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           </div>
           <div className="status-row">
             <span>最近日报</span>
-            <button className="text-link" onClick={()=>go(report ? "report/"+report.id : "reports")}>{report ? fmt(report.created_at) : "查看监测日报"}</button>
+            <button className="text-link" onClick={()=>go(report ? "report/"+report.id : "reports")}>{report ? fmt(report.created_at) : "查看订阅与日报"}</button>
           </div>
           <div className="status-note">
             <Clock size={16} />
@@ -1247,7 +1170,7 @@ function Policies({ data, search, go, setModal }: any) {
     <>
       <Heading
         eyebrow="POLICY INTELLIGENCE"
-        title="团队原文"
+        title="原始资料"
         description="保留原文，明确范围，让事实经得起追溯。"
         actions={
           <Button
@@ -1533,32 +1456,13 @@ function Snapshot({ id, data, act, go, setModal }: any) {
             />
           )}
           {tab === "原文" ? (
-            <div className="source-text">
-              {s.paragraphs.map((p: any) => (
-                <p
-                  id={p.id}
-                  key={p.id}
-                  className={selected === p.id ? "highlight" : ""}
-                  onClick={() => {
-                    setSelected(p.id);
-                    setQuote(p.text);
-                    setText(p.text);
-                  }}
-                >
-                  <span>
-                    {p.id}
-                    {p.page ? ` · 第${p.page}页` : ""}
-                  </span>
-                  {p.text}
-                </p>
-              ))}
-            </div>
+            <SourceDocument snapshot={s} selected={selected} onSelect={(p:any)=>{setSelected(p.id);setQuote(p.text);setText(p.text);}}/>
           ) : s.previous ? (
             <div className="source-text">
               <h3>上一版 · {fmt(s.previous.fetched_at)}</h3>
-              <pre>{s.previous.body}</pre>
+              <DocumentReader label="上一版正文" text={s.previous.body}/>
               <h3>当前版本 · {fmt(s.fetched_at)}</h3>
-              <pre>{s.body}</pre>
+              <DocumentReader label="当前版本正文" text={s.body}/>
             </div>
           ) : (
             <Empty
@@ -2272,7 +2176,7 @@ function PackageForm({ project, data, act }: any) {
 function Project({ id, data, act, go, setModal }: any) {
   const [p, setP] = useState<any>(null),
     [kind, setKind] = useState("master"),
-    [versionId, setVersionId] = useState("");
+    [versionId, setVersionId] = useState(""),[projectTab,setProjectTab]=useState(new URLSearchParams(location.hash.split("?")[1]).get("tab")||"draft");
   const load = () => api("/projects/" + id).then(setP);
   const taskStates = data.jobs.map((j: any) => j.id + j.state).join();
   useEffect(() => {
@@ -2291,7 +2195,7 @@ function Project({ id, data, act, go, setModal }: any) {
         description={`${p.scope.region} · ${p.scope.year} 年 ${p.scope.stage} · 面向${p.scope.audience}`}
         actions={
           <>
-            <Button onClick={()=>{carry(go,'make/presentation',[{kind:'project',id:p.id}]);}}>从项目资料自动制作 PPT</Button>
+            {projectTab==="works"&&<><Button onClick={()=>{carry(go,'make/presentation',[{kind:'project',id:p.id}]);}}>从项目资料自动制作 PPT</Button>
             <Button
               secondary
               onClick={() =>
@@ -2309,7 +2213,7 @@ function Project({ id, data, act, go, setModal }: any) {
             >
               <Download size={15} />
               导出任务包
-            </a>
+            </a></>}
             <Button
               onClick={() =>
                 setModal({
@@ -2334,9 +2238,10 @@ function Project({ id, data, act, go, setModal }: any) {
           </>
         }
       />
-      <ProjectVisualLinks projectId={id} go={go} refresh={taskStates}/>
-      <ProjectHtmlFilm key={id} projectId={id}/>
-      <VisualWebImport scope={p.scope} go={go}/>
+      <div className="project-workflow-tabs" role="tablist" aria-label="项目步骤">{[["sources","资料","创作的依据"],["draft","写稿","编辑基础内容"],["works","作品","制作与交付"]].map(([tab,label,hint],i)=><button key={tab} role="tab" aria-selected={projectTab===tab} onClick={()=>{setProjectTab(tab);if(tab==="draft")setKind("master");if(tab==="works")setKind("policy");}}><span>{i+1}</span><strong>{label}<small>{hint}</small></strong></button>)}</div>
+      {projectTab==="works"&&<><div className="notice">作品使用已保存的基础稿版本。修改基础稿后，旧作品保留；点击重新制作会生成新的版本。</div><ArtifactLibrary embedded projectId={id} data={data} go={go}/><details className="project-extra"><summary>网页、动图与视频制作</summary><ProjectVisualLinks projectId={id} go={go} refresh={taskStates}/>
+      <ProjectHtmlFilm key={id} projectId={id}/></details>
+      <details className="project-extra"><summary>把已有网页加入项目并制作视频</summary><VisualWebImport scope={p.scope} go={go}/></details>
       <div className="tabs project-tabs">
         {Object.entries(kindNames).map(([k, label]) => (
           <button
@@ -2351,8 +2256,10 @@ function Project({ id, data, act, go, setModal }: any) {
           </button>
         ))}
       </div>
-      <div className="editor-layout">
-        <aside className="panel context-pane">
+      </>}
+      <div className={"editor-layout project-mode-"+projectTab}>
+        <aside className="panel context-pane" hidden={projectTab!=="sources"}>
+          <p className="project-draft-guide">这里保存项目的原始依据。增加或替换资料后，基础稿和已有作品会提示需要复核。</p>
           <div className="section-head">
             <h3>资料与事实</h3>
             <BookOpen size={17} />
@@ -2436,8 +2343,9 @@ function Project({ id, data, act, go, setModal }: any) {
           >
             导入外部结果 <ArrowUpRight size={15} />
           </button>
+          <Button onClick={()=>{setProjectTab("draft");setKind("master");}}>资料选好了，开始写稿 <ArrowRight size={15}/></Button>
         </aside>
-        <section className="editor-main">
+        <section className="editor-main" hidden={projectTab==="sources"}>
           <div className="version-bar">
             <span>
               <Layers size={16} /> {kindNames[kind]}
@@ -2470,8 +2378,8 @@ function Project({ id, data, act, go, setModal }: any) {
           {!version && kind === "master" ? (
             <div className="panel">
               <Empty
-                title="先整理一份内容母稿"
-                text="从已关联的事实建立母稿，或让 DeepSeek 梳理研究结构。所有后续成果都会绑定母稿版本。"
+                title="开始写一份基础稿"
+                text="基础稿是多份作品共同的内容依据。可以由 AI 从项目资料整理，也可以从已核验的事实开始。"
                 action={
                   <Button
                     onClick={async () => {
@@ -2487,7 +2395,7 @@ function Project({ id, data, act, go, setModal }: any) {
                         load();
                     }}
                   >
-                    从事实建立母稿 <ArrowRight size={14} />
+                    从事实建立基础稿 <ArrowRight size={14} />
                   </Button>
                 }
               />
@@ -2495,10 +2403,10 @@ function Project({ id, data, act, go, setModal }: any) {
           ) : !version && !master ? (
             <div className="panel">
               <Empty
-                title="请先建立内容母稿"
+                title="请先写好基础稿"
                 action={
                   <Button secondary onClick={() => setKind("master")}>
-                    前往母稿
+                    前往基础稿
                   </Button>
                 }
               />
@@ -2585,7 +2493,7 @@ function GenerateForm({ project, kind, master, data, act, close, go }: any) {
           </select>
         </Field>
       )}
-      <Field label="工作流版本">
+      <details><summary>高级：选择已安装的创作技能</summary><Field label="工作流版本">
         <select value={skillId} onChange={(e) => setSkill(e.target.value)}>
           {data.skills.map((s: any) => (
             <option value={s.id} key={s.id}>
@@ -2593,7 +2501,7 @@ function GenerateForm({ project, kind, master, data, act, close, go }: any) {
             </option>
           ))}
         </select>
-      </Field>
+      </Field></details>
       <Button
         onClick={async () => {
           const r = await act(
@@ -2651,7 +2559,7 @@ function Editor({
   };
   const draft = project.drafts.find((d: any) => d.kind === kind);
   const [body, setBody] = useState<any>(structuredClone(initial)),
-    [view, setView] = useState("编辑"),
+    [view, setView] = useState("编辑"),[structured,setStructured]=useState(false),
     [saveState, setSaveState] = useState(""),
     [dirty, setDirty] = useState(false),
     [format, setFormat] = useState(kind === "presentation" ? "pptx" : "docx"),
@@ -2759,13 +2667,15 @@ function Editor({
               onChange={(e) => change({ ...body, title: e.target.value })}
             />
           </Field>
-          <Field label="摘要">
+          <Field label="内容简介 · 用于说明这份稿件讲什么">
             <textarea
               rows={2}
               value={body.summary}
               onChange={(e) => change({ ...body, summary: e.target.value })}
             />
           </Field>
+          <div className="project-edit-mode"><button className="text-link" onClick={()=>setStructured(!structured)}>{structured?"返回整篇写稿":"调整引用、备注或页面结构"}</button></div>
+          {!structured?<ProjectDraft body={body} onChange={change} claims={project.claims}/>:<>
           {body.blocks.map((b: any, i: number) => (
             <article className="block-editor" key={b.id}>
               <div className="block-head">
@@ -2788,7 +2698,7 @@ function Editor({
                       change({ ...body, blocks: a });
                     }}
                   >
-                    ↑
+                    <ArrowUp size={16}/>
                   </button>
                   <button
                     aria-label="下移"
@@ -2800,7 +2710,7 @@ function Editor({
                       change({ ...body, blocks: a });
                     }}
                   >
-                    ↓
+                    <ArrowDown size={16}/>
                   </button>
                   <button
                     className="icon-btn"
@@ -2833,14 +2743,7 @@ function Editor({
                 placeholder="段落／页面标题"
                 onChange={(e) => block(i, "title", e.target.value)}
               />
-              <textarea
-                aria-label={`内容块${i + 1}正文`}
-                rows={5}
-                value={b.text}
-                readOnly={b.locked}
-                placeholder="写下清晰、准确、有出处的内容…"
-                onChange={(e) => block(i, "text", e.target.value)}
-              />
+              <DocumentReader text={b.text} label={'第'+(i+1)+'段正文'} onChange={b.locked?undefined:(text:string)=>block(i,"text",text)}/>
               <Field
                 label={
                   kind === "presentation" ? "讲者备注" : "讲述、停顿或画面提示"
@@ -2957,6 +2860,7 @@ function Editor({
             <Plus size={16} />
             添加内容块
           </Button>
+          </>}
           <Field label="待核实事项（每行一项）">
             <textarea
               rows={3}
@@ -2988,7 +2892,7 @@ function Editor({
               className={kind === "presentation" ? "slide-preview" : ""}
             >
               <h2>{b.title}</h2>
-              <p>{b.text}</p>
+              <DocumentReader text={b.text}/>
               {b.notes && <aside>{b.notes}</aside>}
               {b.scene && (
                 <p>
@@ -3295,29 +3199,7 @@ function LibraryPage({ data, act, setModal, go }: any) {
     <>
       <Heading title="内容创作" description="选择模板制作，或直接在对话里告诉 AI 要交付什么。"
         actions={<Button onClick={()=>go("explore")}><MessageSquare size={16}/>在对话中制作</Button>}/>
-      <div className="template-grid">
-        {productionTemplates.map((template) => (
-          <div className="panel template-card" key={template.id}>
-            <h3>{template.id === "wechat" ? "写公众号文章" : template.name}</h3>
-            <p>{template.description}</p>
-            <Button onClick={() => go("make/" + template.id)}>
-              <Play size={15} />
-              开始制作
-            </Button>
-            <button
-              className="text-link"
-              onClick={() =>
-                act(
-                  () => copyText(template.prompt),
-                  "已复制；也可点「开始制作」直接执行",
-                )
-              }
-            >
-              复制要求（可选） <ArrowUpRight size={15} />
-            </button>
-          </div>
-        ))}
-      </div>
+      <CreationLauncher data={data} go={go}/>
       <details className="panel lower material-tools"><summary>视频与分镜的人物素材</summary>
       <Button secondary onClick={()=>setModal({type:"character",title:"新建人物素材"})}>新建人物素材</Button>
       {data.characters.length ? (
@@ -3348,10 +3230,13 @@ function LibraryPage({ data, act, setModal, go }: any) {
   );
 }
 function Reports({ data, act, go }: any) {
+  const [jobId,setJobId]=useState('');
   return (
     <>
-      <Heading title="监测日报" description="查看每次政策监测生成的日报和来源覆盖情况。"
-        actions={<Button secondary onClick={() => act(() => post("/monitor"), "监测已启动")}>立即检查政策更新</Button>}/>
+      <Heading title="订阅与日报" description="查看每次政策监测生成的日报和来源覆盖情况。"
+        actions={<Button secondary onClick={async() => {const j=await act(() => post("/monitor"), "监测已启动");if(j)setJobId(j.id);}}>立即检查政策更新</Button>}/>
+      <section className="panel report-guidance"><h2>每天自动整理你关注的信息</h2><p>工作台按已启用的来源抓取公开更新，整理为日报。电脑和服务需要保持运行；未启动时不会实时抓取。</p><div className="report-schedule-summary"><span>自动更新：{data.settings.scheduleEnabled?"已启用":"未启用"}</span><span>{data.nextSchedule?"下次运行："+fmt(data.nextSchedule):"可随时点击「立即检查政策更新」"}</span><span>启用来源：{data.sources.filter((s:any)=>s.enabled).length} 个</span></div>{data.user.role==="admin"&&<button className="text-link" onClick={()=>go("settings")}>设置来源与每天运行时间 <ArrowRight size={14}/></button>}<small>日报会分别标明：发现新内容、没有新增、部分来源失败或全部失败。无新增不等于抓取失败。</small></section>
+      {jobId&&<TaskProgress id={jobId}/>}
       <div className="report-grid">
         {data.reports.map((r: any) => (
           <button

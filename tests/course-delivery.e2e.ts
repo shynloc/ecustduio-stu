@@ -195,10 +195,10 @@ try {
       )
       .toBe(1);
     const userTurn = page.locator("article.chat-message.user").last();
-    await expect(userTurn.getByRole("status")).toContainText("排队中");
+    await expect(userTurn.getByLabel("任务进度", {exact:true})).toContainText("任务已排队");
     if (!turns) {
       const attempt = worker.tick();
-      await expect(userTurn.getByRole("status")).toContainText(
+      await expect(userTurn.getByLabel("任务进度", {exact:true})).toContainText(
         "DeepSeek 正在整理",
         { timeout: 20000 },
       );
@@ -211,11 +211,11 @@ try {
       release();
       await attempt;
       await expect(
-        userTurn.getByRole("button", { name: "重试该轮" }),
+        userTurn.getByRole("button", { name: "重试未完成部分" }),
       ).toBeVisible();
       const originalJob = D.get("SELECT id FROM jobs WHERE type='explore'").id;
       await page.reload();
-      await userTurn.getByRole("button", { name: "重试该轮" }).click();
+      await userTurn.getByRole("button", { name: "重试未完成部分" }).click();
       assert.equal(
         D.get("SELECT id FROM jobs WHERE type='explore' AND state='queued'").id,
         originalJob,

@@ -1,3 +1,4 @@
+import {conversationMemory} from './context-budget.js';
 import {runAdaptation} from "./chat-adaptations.js";
 import {runChatFilmTask} from "./chat-film.js";
 import {readChatMaterials,inferRevision,revisionTarget} from "./chat-materials.js";
@@ -75,6 +76,7 @@ export function jobView(j: any, compact = false) {
     htmlProjectId:["explore","chat-narration","chat-film"].includes(j.type)?parse(j.input).projectId:undefined,
     conversationId: ["explore","conversation-export","chat-narration","chat-film"].includes(j.type) ? parse(j.input).conversationId : undefined,
     parentProductionId:j.type === "visual-export" ? parse(j.input).parentProductionId : undefined,
+    sourceInput:j.type==='import'?{url:parse(j.input).url,title:parse(j.input).title}:undefined,
     input: undefined,
     input_hash: undefined,
     result,
@@ -656,7 +658,7 @@ export class Worker {
       signal.throwIfAborted();
       if (get("SELECT fence FROM jobs WHERE id=?", j.id)?.fence !== j.fence)
         throw new Error("租约已失效");
-      run("UPDATE jobs SET stage=? WHERE id=?", stage, j.id);
+      if(!["text.delta","usage"].includes(stage))run("UPDATE jobs SET stage=? WHERE id=?", stage, j.id);
       event(j.id, stage, payload);
     };
     try {
@@ -708,11 +710,10 @@ export class Worker {
           input.materialSources=await readChatMaterials(input,j.id,signal,progress,this.exploreTransport);
           if(input.queueTurn){
             // Read earlier turns by their user message, even if two requests were queued before either answer existed.
-            input.history=all(`SELECT m.role,m.content,m.sources,m.context FROM messages m
-              JOIN messages u ON u.job_id=m.job_id AND u.role='user'
-              WHERE m.conversation_id=? AND u.rowid < (SELECT rowid FROM messages WHERE job_id=? AND role='user')
-              ORDER BY u.rowid DESC,m.rowid DESC LIMIT 10`,input.conversationId,j.id).reverse()
-              .map(m=>({...m,sources:parse(m.sources,[]),context:parse(m.context)}));
+            const memory=conversationMemory(input.conversationId,input.prompt,input.mode,input.config.maxInputChars,true,j.id);
+            input.history=memory.history;input.historySummary=memory.summary;
+            input.contextBudget={...input.contextBudget,...memory.historyInfo};
+
           }
           response = await runExplore(input, progress, signal,this.exploreTransport);
           progress("prepare",{message:"本轮内容已整理"});

@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { get, run, parse, json, now, err } from "./db.js";
+import { get, run, parse, json, now, err, id } from "./db.js";
 import { MarkdownManager } from "@tiptap/markdown";
-import StarterKit from "@tiptap/starter-kit";
-import { TableKit } from "@tiptap/extension-table";
-import Image from "@tiptap/extension-image";
+import { documentExtensions } from "../shared/document.js";
 import { checkMediaAsset } from "./media-access.js";
 const markdown = new MarkdownManager({
-  extensions: [StarterKit, TableKit, Image],
+  extensions: documentExtensions(),
 });
 export function documentBody(documentJson: any, body: string, user: any) {
   if (!documentJson) return body;
@@ -46,6 +44,8 @@ const allowed = new Set([
   "tableCell",
   "tableHeader",
   "image",
+  "preservedBlock",
+  "preservedInline",
 ]);
 export const DocumentJson = z
   .any()
@@ -60,14 +60,16 @@ export const DocumentJson = z
     function visit(node: any, depth = 0) {
       if (++count > 30000 || depth > 40 || !node || !allowed.has(node.type))
         throw new Error();
+      if (['preservedBlock','preservedInline'].includes(node.type) && (typeof node.attrs?.raw !== 'string' || node.attrs.raw.length > 100000 || !['html','math','footnote'].includes(node.attrs.kind))) throw new Error();
       if (
         node.type === "image" &&
         !/^\/api\/assets\/[a-zA-Z0-9_-]+$/.test(node.attrs?.src || "")
       )
         throw new Error();
+      if(node.type==='image' && ((node.attrs.width!=null && (!Number.isInteger(node.attrs.width)||node.attrs.width<80||node.attrs.width>1600)) || (node.attrs.caption!=null && (typeof node.attrs.caption!=='string'||node.attrs.caption.length>500))))throw new Error();
       for (const m of node.marks || []) {
         if (
-          !["bold", "italic", "strike", "code", "underline", "link"].includes(
+          !["bold", "italic", "strike", "code", "underline", "link", "highlight"].includes(
             m.type,
           )
         )
@@ -124,7 +126,7 @@ export function knowledgeView(n: any) {
       : Categories.parse({}),
   };
 }
-export function saveDocument(n: any, documentJson: any, categories?: any) {
+export function saveDocument(n: any, documentJson: any, categories?: any, skipCollection=false) {
   if (documentJson !== undefined) {
     run(
       "INSERT OR REPLACE INTO note_documents(note_id,revision,document_json) VALUES(?,?,?)",
@@ -143,6 +145,16 @@ export function saveDocument(n: any, documentJson: any, categories?: any) {
       json(c.purposes),
       c.state,
     );
+    if(!skipCollection){
+      const owner=n.owner_id||get('SELECT owner_id FROM notes WHERE id=?',n.id)?.owner_id;
+      if(owner){
+        const prior=get("SELECT * FROM collection_items WHERE owner_id=? AND kind='notes' AND entity_id=?",owner,n.id);
+        let folder=prior?.folder_id&&get('SELECT * FROM collection_folders WHERE id=?',prior.folder_id);
+        if(folder?.name!==c.folder)folder=c.folder?get("SELECT * FROM collection_folders WHERE owner_id=? AND kind='notes' AND parent_id IS NULL AND name=?",owner,c.folder):null;
+        if(c.folder&&!folder){folder={id:id()};run("INSERT INTO collection_folders(id,owner_id,kind,name,created_at) VALUES(?,?,'notes',?,?)",folder.id,owner,c.folder,now());}
+        run("INSERT INTO collection_items(owner_id,kind,entity_id,folder_id,tags,archived,updated_at) VALUES(?,'notes',?,?,?,?,?) ON CONFLICT(owner_id,kind,entity_id) DO UPDATE SET folder_id=excluded.folder_id,tags=excluded.tags,archived=excluded.archived,revision=collection_items.revision+1,updated_at=excluded.updated_at",owner,n.id,folder?.id||null,json(c.tags),c.state==='archived'?1:0,now());
+      }
+    }
   }
 }
 export function preserveNote(n: any) {

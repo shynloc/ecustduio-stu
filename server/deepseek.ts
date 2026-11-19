@@ -1,6 +1,7 @@
 import { err, json } from "./db.js";
 import { getSecret } from "./secrets.js";
 import {validateToolMode,invalidRequest} from './model-request.js';
+import {readCompletionStream,StreamListener} from './provider-stream.js';
 
 export function thinkingOptions(config: any) {
   const mode = config.thinkingMode || "disabled";
@@ -45,7 +46,7 @@ export function addUsage(total: ReturnType<typeof newUsage>, value: any) {
   total.imageSearches += value?.server_tool_use?.tool_image_search || 0;
 }
 
-export async function deepseekRequest(body: any, signal: AbortSignal, transport: typeof fetch = fetch) {
+export async function deepseekRequest(body: any, signal: AbortSignal, transport: typeof fetch = fetch, onStream?:StreamListener) {
   validateToolMode(body);
   const key = transport === fetch ? await getSecret("deepseek") : undefined;
   if (!key && transport === fetch)
@@ -55,7 +56,8 @@ export async function deepseekRequest(body: any, signal: AbortSignal, transport:
     body: json(body), signal,
   });}catch(e:any){signal.throwIfAborted();err('MODEL_NETWORK_UNAVAILABLE','无法连接 DeepSeek，请检查本机网络后重试；已完成的步骤会保留',502);}
   let result: any;
-  try { result = await res.json(); } catch {
+  if(res.ok && res.headers.get('content-type')?.includes('text/event-stream')) result=await readCompletionStream(res,signal,onStream);
+  else try { result = await res.json(); } catch {
     err("MODEL_UNAVAILABLE", `DeepSeek 未返回有效响应（HTTP ${res.status}），请稍后重试`, 502);
   }
   if (!res.ok || result?.error) {

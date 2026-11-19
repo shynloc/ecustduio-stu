@@ -11,11 +11,15 @@ for name in ['server','web','shared','migrations','skills','public','dist','dist
 for name in ['package.json','package-lock.json','tsconfig.json','tsconfig.server.json','vite.config.ts','.env.example','.gitignore']:
     shutil.copy2(app/name, product/name)
 (product/'scripts').mkdir()
+shutil.copy2(app/'HANDOFF.md',product/'HANDOFF.md')
+shutil.copy2(app/'README.md',product/'DEVELOPMENT_README.md')
+shutil.copytree(app/'docs'/'plans',product/'docs'/'plans')
+for doc in ['MAC_DEVELOPMENT.md','DEVELOPMENT_DIRECTION.md','NEXT_AGENT_PROMPT.md','0.11.0开发与验证记录.md','0.11.0使用指南.md','0.11.0发布与升级说明.md']:shutil.copy2(app/'docs'/doc,product/'docs'/doc)
 for name in ['update-protocol.mjs','update-runner.mjs','upgrade.mjs','sync-update-runtime.mjs','windows-ocr.ps1','macos-ocr.js','diagnose-runtime.mjs','customer-selftest.mjs','setup-gif-runtime.mjs','gif-factory-export.py','gif-factory-decode.py','authenticated-session.ts']:
     shutil.copy2(app/'scripts'/name, product/'scripts'/name)
 for file in (app/'deployment').iterdir():
     if file.is_file(): shutil.copy2(file, stage/file.name)
-for name in ['0.10.0发布与升级说明.md','0.10.0本地Agent安装升级提示词.md','0.10.0开发与验证记录.md','0.9.0发布与升级说明.md','0.9.0本地Agent安装升级提示词.md','0.9.0开发与验证记录.md','0.8.4发布与升级说明.md','0.8.4本地Agent安装升级提示词.md','0.8.4开发与验证记录.md','0.8.3发布与升级说明.md','0.8.3本地Agent安装升级提示词.md','0.8.3开发与验证记录.md','0.8.2发布与升级说明.md','0.8.2本地Agent安装升级提示词.md','0.8.2开发与验证记录.md','0.8.1发布与升级说明.md','0.8.1本地Agent安装升级提示词.md','0.8.1开发与验证记录.md','0.8.0发布与升级说明.md','0.8.0本地Agent安装升级提示词.md','0.8.0视觉创作使用指南.md','0.8.0开发与验证记录.md','0.7.0发布与升级说明.md','0.7.0本地Agent安装升级提示词.md','0.7.0视觉创作使用指南.md','0.7.0开发与验证记录.md','0.6.0使用与升级指南.md','0.6.0开发说明.md','0.6.0验证记录.md','DeepSeek文件图像语音使用指南.md','DeepSeek媒体验证记录.md','DeepSeek媒体验证记录.json','DeepSeek媒体流程验证.json','DeepSeek能力升级说明.md','DeepSeek升级验证记录.md','DeepSeek升级验证记录.json']:
+for name in ['0.11.0发布与升级说明.md','0.11.0本地Agent安装升级提示词.md','0.11.0开发与验证记录.md','0.11.0使用指南.md','0.10.0发布与升级说明.md','0.10.0本地Agent安装升级提示词.md','0.10.0开发与验证记录.md','0.9.0发布与升级说明.md','0.9.0本地Agent安装升级提示词.md','0.9.0开发与验证记录.md','0.8.4发布与升级说明.md','0.8.4本地Agent安装升级提示词.md','0.8.4开发与验证记录.md','0.8.3发布与升级说明.md','0.8.3本地Agent安装升级提示词.md','0.8.3开发与验证记录.md','0.8.2发布与升级说明.md','0.8.2本地Agent安装升级提示词.md','0.8.2开发与验证记录.md','0.8.1发布与升级说明.md','0.8.1本地Agent安装升级提示词.md','0.8.1开发与验证记录.md','0.8.0发布与升级说明.md','0.8.0本地Agent安装升级提示词.md','0.8.0视觉创作使用指南.md','0.8.0开发与验证记录.md','0.7.0发布与升级说明.md','0.7.0本地Agent安装升级提示词.md','0.7.0视觉创作使用指南.md','0.7.0开发与验证记录.md','0.6.0使用与升级指南.md','0.6.0开发说明.md','0.6.0验证记录.md','DeepSeek文件图像语音使用指南.md','DeepSeek媒体验证记录.md','DeepSeek媒体验证记录.json','DeepSeek媒体流程验证.json','DeepSeek能力升级说明.md','DeepSeek升级验证记录.md','DeepSeek升级验证记录.json']:
     shutil.copy2(app/'docs'/name,stage/name)
 shutil.copytree(app/'docs'/'product',stage/'docs'/'原始PRD与开发文档')
 for name in ['产品说明.md','详细使用指南.md','本地Agent安装启动提示词.md']:

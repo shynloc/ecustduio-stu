@@ -23,7 +23,7 @@ const nav = (page: Page) =>
 const entries = [
   "工作台",
   "资料库",
-  "笔记本",
+  "知识库",
   "AI 创作对话",
   "内容创作",
   "项目",
@@ -74,9 +74,9 @@ try {
   const errors: string[] = [];
   admin.on("pageerror", (e) => errors.push(e.message));
   await setupBrowser(admin, url);
-  await expect(nav(admin).getByRole("link")).toHaveText(entries);
+  await expect(nav(admin).locator(":scope > a")).toHaveText(entries);
   await admin
-    .getByRole("button", { name: "开始内容创作", exact: true })
+    .getByRole("link", { name: "内容创作", exact: true })
     .click();
   await expect(admin).toHaveURL(/#library$/);
   await expect(nav(admin).locator('a[aria-current="page"]')).toHaveText(
@@ -112,15 +112,14 @@ try {
   await admin
     .getByLabel("按项目筛选", { exact: true })
     .selectOption(project.id);
-  await admin.getByLabel("按格式筛选", { exact: true }).selectOption("txt");
-  await admin.getByLabel("查找成果").fill("课堂");
-  const file = admin.getByRole("link", { name: "下载 TXT" });
+  await admin.getByLabel("筛选成果格式", { exact: true }).selectOption("txt");
+  await admin.getByLabel("搜索成果").fill("课堂");
+  const file = admin.getByRole("link", { name: "下载", exact:true });
   assert.ok(
     (await admin.request.get(url + (await file.getAttribute("href")))).ok(),
   );
-  await admin.getByLabel(sample.name).check();
-  await admin.getByRole("button", { name: "打包所选 1 项" }).click();
-  await expect(admin.getByRole("link", { name: "下载 ZIP" })).toBeVisible();
+  await admin.getByLabel("选择 "+sample.name).check();
+  const popup=admin.waitForEvent("popup");await admin.getByRole("button", { name: "打包下载",exact:true }).click();const zip=await popup;await zip.close();await expect(admin.locator(".collection-feedback")).toContainText("打包完成");
   await nav(admin).getByRole("link", { name: "任务中心" }).click();
   await admin.getByRole("button", { name: "管理计划" }).click();
   await expect(admin.locator("#schedule-settings")).toBeFocused();
@@ -145,7 +144,7 @@ try {
     });
     await page.goto(url + "/#accounts");
     if (role === "creator") {
-      await expect(nav(page).getByRole("link")).toHaveText(entries);
+      await expect(nav(page).locator(":scope > a")).toHaveText(entries);
       await expect(
         page.getByText("当前账号无权管理工作台成员。"),
       ).toBeVisible();
@@ -157,7 +156,7 @@ try {
         403,
       );
     } else {
-      await expect(nav(page).getByRole("link")).toHaveText([
+      await expect(nav(page).locator(":scope > a")).toHaveText([
         "政策资料",
         "可用成果",
       ]);
@@ -188,8 +187,8 @@ try {
     )
     .toBeGreaterThanOrEqual(0);
   await admin.screenshot({ path: out + "/mobile.png", animations: "disabled" });
-  await nav(admin).getByRole("link", { name: "笔记本", exact: true }).click();
-  await expect(admin.getByRole("heading", { name: "笔记本" })).toBeVisible();
+  await nav(admin).getByRole("link", { name: "知识库", exact: true }).click();
+  await expect(admin.getByRole("heading", { name: "知识库" })).toBeVisible();
   await expect(admin.getByRole("button", { name: "打开导航" })).toHaveAttribute(
     "aria-expanded",
     "false",

@@ -6,7 +6,7 @@ export function InputCenter({ go, setModal }: any) {
       <div className="page-heading">
         <div>
           <h1>导入资料</h1>
-          <p>文字和识别后的笔记可保存到个人笔记本；公开网址导入团队原文库。</p>
+          <p>文字和识别后的笔记可保存到个人知识库；公开网址导入原始资料库。</p>
         </div>
       </div>
       <InputForm go={go} />

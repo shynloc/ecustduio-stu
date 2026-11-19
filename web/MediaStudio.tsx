@@ -1,3 +1,4 @@
+import {TaskProgress} from './tasks/TaskProgress';
 import {EvidencePanel} from './EvidencePanel';
 import {carry,readContext} from './context';
 import {DocumentReader} from './DocumentReader';
@@ -240,7 +241,7 @@ export function MediaStudio({ data, act, go, id, speech = false }: any) {
       setBusy(false);
     }
   }
-  useEffect(()=>{let live=true;readContext().then(c=>{if(!live||!c||c.purpose!=='speech')return;if(!speech){go('speech?context='+encodeURIComponent(c.id));return;}const i=c.items[0],v=i.value;setAction('tts');setTitle(v.title||v.body?.title||'内容配音');setSpeechText(typeof v.body==='string'?v.body:v.body?.blocks?.map((b:any)=>b.text).join('\n\n')||v.content||'');setSource({sourceKind:i.ref.kind,sourceId:i.ref.id});}).catch(e=>live&&setError(e.message));return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;readContext().then(c=>{if(!live||!c)return;if(c.purpose==='input'){const a=c.items.find((i:any)=>i.ref.kind==='asset');if(a){setFile(a.value);setTitle(a.value.name.replace(/\.[^.]+$/,''));setAction(/^audio\//.test(a.value.mime)?'asr':/^image\//.test(a.value.mime)?'vision':'document');}return;}if(c.purpose!=='speech')return;if(!speech){go('speech?context='+encodeURIComponent(c.id));return;}const i=c.items[0],v=i.value;setAction('tts');setTitle(v.title||v.body?.title||'内容配音');setSpeechText(typeof v.body==='string'?v.body:v.body?.blocks?.map((b:any)=>b.text).join('\n\n')||v.content||'');setSource({sourceKind:i.ref.kind,sourceId:i.ref.id});}).catch(e=>live&&setError(e.message));return()=>{live=false;};},[]);
   async function note(destination: string) {
     setBusy(true);
     try {
@@ -284,6 +285,7 @@ export function MediaStudio({ data, act, go, id, speech = false }: any) {
   }
   return (
     <>
+      {!speech&&<div className="workflow-guidance"><span>1 · 放入文件或录音</span><span>2 · 自动识别、按页校对</span><span>3 · 存入知识库或开始创作</span><p>扫描 PDF 与混排文档会自动分组处理。未完成的页会明确标出；重试复用已经完成的部分。</p></div>}
       <div className="page-heading">
         <div>
           <span className="eyebrow">READ · UNDERSTAND · LISTEN · CREATE</span>
@@ -517,43 +519,7 @@ export function MediaStudio({ data, act, go, id, speech = false }: any) {
                   查看任务记录
                 </button>
               </div>
-              {running && (
-                <div className="media-status" role="status">
-                  <LoaderCircle className="spin" size={24} />
-                  <p>{stage || "任务已排队"}</p>
-                  <button
-                    className="btn secondary"
-                    onClick={async () => {
-                      try {
-                        setJob(await post(`/jobs/${job.id}/cancel`));
-                      } catch (e: any) {
-                        setError(e.message);
-                      }
-                    }}
-                  >
-                    取消任务
-                  </button>
-                </div>
-              )}
-              {["failed", "interrupted", "canceled", "partial"].includes(job.state) && (
-                <div className="notice warning">
-                  <p>{job.error?.message || "任务已停止"}</p>
-                  {job.state !== "canceled" && (
-                    <button
-                      className="btn secondary"
-                      onClick={async () => {
-                        try {
-                          setJob(await post(`/jobs/${job.id}/retry`));
-                        } catch (e: any) {
-                          setError(e.message);
-                        }
-                      }}
-                    >
-                      重试未完成部分
-                    </button>
-                  )}
-                </div>
-              )}
+              <TaskProgress job={job} onRetry={setJob}/>
               {result?.coverage==='partial'&&<p className="notice warning">已完成 {result.completedPages}/{result.pageCount} 页。未完成部分可重试，完整前暂不导入为创作素材。</p>}
               {result && (
                 <>

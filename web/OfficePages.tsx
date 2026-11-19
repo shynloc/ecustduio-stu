@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-export function OfficePages({ conversationId, file, onClose }: any) {
+export function OfficePages({ conversationId, file, onClose, collection=false }: any) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [zoom, setZoom] = useState(false);
   useEffect(() => {
@@ -18,7 +18,7 @@ export function OfficePages({ conversationId, file, onClose }: any) {
     setError("");
     (async () => {
       const response = await fetch(
-        "/api/conversations/" +
+        collection ? "/api/collections/artifacts/"+file.id+"/pages/"+page : "/api/conversations/" +
           conversationId +
           "/artifacts/" +
           file.id +

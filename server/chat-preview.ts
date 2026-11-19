@@ -148,3 +148,11 @@ export async function officePage(
     sourceHash: a.hash,
   };
 }
+
+export async function artifactPage(id:string,page:number,user:any){
+ const a=requireRow(get('SELECT s.id,s.hash,f.format FROM artifacts f JOIN assets s ON s.id=f.asset_id WHERE f.id=?',id));
+ checkMediaAsset(a.id,user);
+ if(!['docx','pptx','pdf'].includes(a.format))err('INVALID_PREVIEW','请选择文档、演示或PDF',422);
+ if(!Number.isInteger(page)||page<1)err('PAGE_NOT_FOUND','页码无效',404);
+ return {...await renderPdfPage(a.format==='pdf'?assetBuffer(a.id).data:await converted(a,a.format),page),sourceHash:a.hash};
+}

@@ -130,11 +130,14 @@ function throttle(name: string, ip: string) {
 }
 export function canAccess(role: string, method: string, path: string) {
   if (/^\/api\/auth\/(logout|password)$/.test(path)) return true;
+  if (['admin','creator','sales'].includes(role) && /^\/api\/workspace\/preferences\/[^/]+$/.test(path) && ['GET','PUT'].includes(method)) return true;
   if (role === "admin") return true;
   if (role === "sales")
     return (
       method === "GET" &&
       (/^\/api\/state$/.test(path) ||
+        /^\/api\/collections\/artifacts$/.test(path) ||
+        /^\/api\/collections\/artifacts\/[^/]+\/(preview|pages\/\d+)$/.test(path) ||
         /^\/api\/(snapshots|reports)\/[^/]+$/.test(path) ||
         /^\/api\/artifacts\/[^/]+\/download$/.test(path) ||
         /^\/api\/assets\/[^/]+$/.test(path))

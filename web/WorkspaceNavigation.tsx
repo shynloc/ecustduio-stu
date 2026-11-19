@@ -1,3 +1,4 @@
+import {ConversationSidebar} from './conversations/ConversationSidebar';
 import React from "react";
 import {
   Activity,
@@ -14,7 +15,7 @@ import {
 const destinations = [
   ["dashboard", "工作台", LayoutDashboard],
   ["policies", "资料库", Library],
-  ["notes", "笔记本", NotebookPen],
+  ["notes", "知识库", NotebookPen],
   ["explore", "AI 创作对话", MessageSquare],
   ["library", "内容创作", PencilLine],
   ["projects", "项目", FolderOpen],
@@ -25,18 +26,19 @@ const destinations = [
 
 const sections: Record<string, readonly [string, string, ...string[]][]> = {
   policies: [
-    ["policies", "团队原文", "snapshot"],
+    ["policies", "原始资料", "snapshot"],
     ["input", "导入资料"],
     ["media", "识别与转写"],
-    ["impacts", "更新与影响"],
-    ["reports", "监测日报", "report"],
+    ["impacts", "资料更新"],
+    ["reports", "订阅与日报", "report"],
   ],
   library: [
-    ["library", "使用模板", "make"],
+    ["library", "选择成品", "make"],
     ["steward", "描述需求"],
     ["deliver", "从素材制作", "visual"],
     ["wechat", "公众号编辑器"],
     ["speech", "文字配音"],
+    ["html-video", "网页转视频"],
   ],
   projects: [
     ["projects", "项目列表", "project"],
@@ -127,6 +129,7 @@ export function WorkspaceLinks({
           )}
         </a>
       ))}
+      {nav.items.some(([id])=>id==="explore")&&<ConversationSidebar compact go={go} currentId={location.hash.split("?")[0].startsWith("#explore/")?location.hash.split("?")[0].split("/")[1]:""}/>}
     </nav>
   );
 }

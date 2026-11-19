@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { root, err } from './db.js';
 
 export const ffmpegPath = () => createRequire(import.meta.url)('@ffmpeg-installer/ffmpeg').path as string;
-export async function visualBrowser() {
-  try { return await chromium.launch({headless:true}); }
-  catch(e) { if(process.platform==='win32')return chromium.launch({channel:'msedge',headless:true}); throw e; }
+export async function visualBrowser(options:any={}) {
+  try { return await chromium.launch({...options,headless:true}); }
+  catch(e) { if(process.platform==='win32')return chromium.launch({...options,channel:'msedge',headless:true}); throw e; }
 }
 export async function command(file:string,args:string[],signal:AbortSignal,limit=180000) {
   signal.throwIfAborted();

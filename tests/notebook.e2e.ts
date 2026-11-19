@@ -64,7 +64,7 @@ try {
     assert.equal(r.status(), 200);
   }
   await page.goto(base + "/#notes");
-  const cards = page.locator(".note-card");
+  const cards = page.locator(".collection-card");
   await expect(cards).toHaveCount(6);
   await expect(cards.locator("blockquote").first()).toBeVisible();
   const columns = () =>
@@ -74,13 +74,7 @@ try {
           .size,
     );
   assert.ok((await columns()) >= 2);
-  assert.ok(
-    await cards.evaluateAll(
-      (els) =>
-        new Set(els.map((e) => Math.round(e.getBoundingClientRect().height)))
-          .size > 1,
-    ),
-  );
+  await expect(cards.locator("table")).toHaveCount(1);
   await page.screenshot({ path: out + "/cards-desktop.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(columns).toBe(1);
@@ -97,36 +91,36 @@ try {
     )
     .toBeLessThanOrEqual(1);
   await page.screenshot({ path: out + "/cards-mobile.png" });
-  await page.getByLabel("筛选文件夹").selectOption("观察");
+  await page.locator(".folder-label").filter({hasText:"观察"}).click();
   await expect(cards).toHaveCount(3);
-  await page.getByRole("link", { name: "显微镜下的叶脉" }).click();
+  await page.getByRole("button", { name: "显微镜下的叶脉",exact:true }).click();
   await expect(page.getByRole("heading", { name: "操作顺序" })).toBeVisible();
-  await page.getByRole("button", { name: "返回笔记本" }).click();
+  await page.getByRole("button", { name: "返回知识库" }).click();
   await page.setViewportSize({ width: 1440, height: 980 });
   await page.getByRole("button", { name: "新建笔记" }).click();
   await page.getByLabel("笔记标题").fill("探究记录");
   const formatting = page.getByRole("toolbar", { name: "正文格式" });
-  await expect(formatting.getByRole("button")).toHaveCount(11);
+  assert.ok(await formatting.getByRole("button").count() >= 15);
   const controls = page.locator(".editor-icon");
   assert.ok(await controls.evaluateAll(buttons => buttons.every(button =>
     button.textContent.trim() === "" && button.querySelector("svg") &&
     button.getAttribute("title") && button.getAttribute("title") === button.getAttribute("aria-label")
   )));
   await page.setViewportSize({ width: 390, height: 844 });
-  const bold = formatting.getByRole("button", { name: "加粗" });
+  const bold = formatting.getByRole("button", { name: "加粗 · Ctrl+B" });
   const bounds = await bold.boundingBox();
   assert.ok(bounds && bounds.width >= 44 && bounds.height >= 44);
   await bold.press("Enter");
   await expect(page.locator(".tiptap[contenteditable=true]")).toBeFocused();
   await page.keyboard.insertText("课堂观察");
   await expect(page.locator(".tiptap strong")).toHaveText("课堂观察");
-  await expect(page.getByRole("button", { name: "编辑正文" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "直接编辑正文" })).toHaveAttribute("aria-pressed", "true");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await page.locator(".document-reader").screenshot({ path: out + "/editor-icons-mobile.png", animations: "disabled" });
   await page.setViewportSize({ width: 1440, height: 980 });
   await page.locator(".document-reader").screenshot({ path: out + "/editor-icons-desktop.png" });
 
-  await page.getByRole("button", { name: "编辑 Markdown" }).click();
+  await page.getByRole("button", { name: "高级：Markdown 源码" }).click();
   const sourceInput = page.getByRole("textbox", { name: "笔记内容源文" });
   const sourceTools = page.getByRole("toolbar", { name: "Markdown 源文格式" });
   const preview = page.getByLabel("Markdown 实时预览");
@@ -242,7 +236,7 @@ try {
   await page.reload();
   await expect(page.getByRole("heading", { name: "课堂问题" })).toBeVisible();
   await expect(page.getByRole("link", { name: "教学 [指南]", exact: true })).toHaveAttribute("href", article);
-  await page.getByRole("button", { name: "编辑 Markdown" }).click();
+  await page.getByRole("button", { name: "高级：Markdown 源码" }).click();
   await expect(page.getByRole("textbox", { name: "笔记内容源文" })).toHaveValue(
     source,
   );

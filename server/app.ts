@@ -1,4 +1,5 @@
 import {registerProjectHtmlFilms} from "./project-html-films.js";
+import {registerCollections} from './collections.js';
 import {registerWechatDrafts, wechatSecrets} from './wechat.js';
 import {officialWechat} from './wechat-client.js';
 import {registerPipeline} from './pipeline.js';
@@ -129,7 +130,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
     if (status === 500) console.error("[server]", e.code || "", e.message);
   });
   app.addHook("onSend", async (req, reply, payload) => {
-    if(req.routeOptions.url==='/api/visuals/:id/preview'){
+    if(req.routeOptions.url==='/api/visuals/:id/preview'||req.routeOptions.url==='/api/collections/artifacts/:id/preview'){
       reply.header('X-Content-Type-Options','nosniff');
       reply.header('X-Frame-Options','SAMEORIGIN');
       reply.header('Cache-Control','no-store');
@@ -224,6 +225,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
   });
   await registerAuth(app);
   await registerExplore(app, enqueue);
+  await registerCollections(app);
   registerProjectHtmlFilms(app,enqueue);
   await registerPipeline(app, enqueue);
   await registerResumableUploads(app);
@@ -884,7 +886,7 @@ export async function buildApp(startWorker = false, updateOverrides = {}, secret
     eventStreams.add(close);
     req.raw.on("close", close);
     send();
-    if (!closed) timer = setInterval(send, 1500);
+    if (!closed) timer = setInterval(send, 300);
   });
   app.post("/api/monitor", async (req: any) => {
     const cfg = settings(),

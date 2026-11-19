@@ -1,3 +1,4 @@
+import {ContextPicker} from './conversations/ContextPicker';
 import React, { useEffect, useRef, useState } from "react";
 import { productionTemplates } from "../shared/production";
 import { api, post } from "./api";
@@ -261,11 +262,12 @@ function DeliveryProgress({
 }
 
 function DeliveryForm({ data, go }: any) {
+  const [picker,setPicker]=useState(false);
   const [notes, setNotes] = useState<any[]>([]),
     [refs, setRefs] = useState<any[]>([]),
     [query, setQuery] = useState("");
   const [templateId, setTemplate] = useState("presentation"),
-    [formats, setFormats] = useState<string[]>(["pptx"]),
+    [formats, setFormats] = useState<string[]>([["gif","mp4","html","pptx","docx","pdf"].includes(new URLSearchParams(location.hash.split("?")[1]).get("format")||"")?new URLSearchParams(location.hash.split("?")[1]).get("format")!:"pptx"]),
     [prompt, setPrompt] = useState("");
   const [share, setShare] = useState(false),
     [reviewed, setReviewed] = useState(false),
@@ -283,7 +285,7 @@ function DeliveryForm({ data, go }: any) {
     Promise.all([api("/notes"), readContext()])
       .then(([list, ctx]) => {
         if (live) {
-          setNotes(list);
+          setNotes([...list,...(ctx?.items||[]).filter((i:any)=>i.ref.kind==="note"&&!list.some((n:any)=>n.id===i.ref.id)).map((i:any)=>i.value)]);
           if (ctx) setRefs(ctx.refs);
         }
       })
@@ -321,9 +323,7 @@ function DeliveryForm({ data, go }: any) {
     data.settings.allowExternalAI &&
     data.capabilities.deepseek === "configured";
   const stillValid = refs.every((r) =>
-    (r.kind === "note" ? notes : data.snapshots).some(
-      (n: any) => n.id === r.id,
-    ),
+    r.kind === "snapshot" || notes.some((n: any) => n.id === r.id),
   );
   async function submit() {
     setBusy(true);
@@ -353,48 +353,12 @@ function DeliveryForm({ data, go }: any) {
   return (
     <section className="panel pipeline-form">
       <h2>1. 选择素材</h2>
-      <label className="field">
-        查找素材
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="按标题查找笔记或原文"
-        />
-      </label>
-      <div className="pipeline-picker">
-        {[
-          ["note", notes],
-          ["snapshot", data.snapshots],
-        ].map(([kind, list]: any) => (
-          <details key={kind} open>
-            <summary>{kind === "note" ? "私人知识库" : "团队共享资料"}</summary>
-            {list
-              .filter((n: any) =>
-                n.title
-                  .toLocaleLowerCase()
-                  .includes(query.trim().toLocaleLowerCase()),
-              )
-              .map((n: any) => {
-                const checked = refs.some(
-                  (r) => r.kind === kind && r.id === n.id,
-                );
-                return (
-                  <label key={n.id}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={
-                        busy || loading || (!checked && refs.length >= 20)
-                      }
-                      onChange={(e) => select(kind, n, e.target.checked)}
-                    />
-                    {n.title}
-                  </label>
-                );
-              })}
-          </details>
-        ))}
-      </div>
+      <button className="btn secondary" onClick={()=>setPicker(true)}>从知识库或原始资料选择</button>
+      <div className="pipeline-selected">{refs.map(r=><span key={r.kind+r.id}>{(r.kind==='note'?notes:data.snapshots).find((n:any)=>n.id===r.id)?.title||'已选资料'}<button aria-label="移除这份素材" onClick={()=>setRefs(rows=>rows.filter(x=>x.id!==r.id||x.kind!==r.kind))}>×</button></span>)}</div>
+      {picker&&<ContextPicker selected={refs.filter(r=>r.kind==='note').map(r=>r.id)} snapshots={refs.filter(r=>r.kind==='snapshot').map(r=>r.id)}
+        onChange={async(ids:string[])=>{setRefs(rows=>[...rows.filter(r=>r.kind!=='note'),...ids.map(id=>({kind:'note',id}))]);setShare(false);setReviewed(false);try{const loaded=await Promise.all(ids.map(id=>api('/notes/'+id)));setNotes(rows=>[...rows.filter(n=>!ids.includes(n.id)),...loaded]);}catch(e:any){setError(e.message);}}}
+        onSnapshots={(ids:string[])=>setRefs(rows=>[...rows.filter(r=>r.kind!=='snapshot'),...ids.map(id=>({kind:'snapshot',id}))])} close={()=>setPicker(false)}/>}
+      {refs.length>20&&<p role="alert">整套内容制作每次最多使用20份资料。可以分成多个任务制作，或先在对话中整理成一份知识。</p>}
       <small>已选 {refs.length} / 20 份</small>
       {hasNotes && (
         <label className="check-row">
@@ -496,7 +460,7 @@ function DeliveryForm({ data, go }: any) {
           loading ||
           busy ||
           !available ||
-          !refs.length ||
+          !refs.length || refs.length>20 ||
           !stillValid ||
           !formats.length ||
           partial ||

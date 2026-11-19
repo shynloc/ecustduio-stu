@@ -96,10 +96,10 @@ export const DeepSeekSettings = Settings.pick({
   maxTokens: true,
 }).strict();
 export const kindNames: Record<string, string> = {
-  master: "内容母稿",
-  policy: "政策解读",
-  speech: "真人口播",
+  master: "基础稿",
+  policy: "报告与解读",
+  speech: "演讲与口播稿",
   wechat: "公众号图文",
-  presentation: "讲座 PPT",
-  storyboard: "视频分镜",
+  presentation: "演示 PPT",
+  storyboard: "视频脚本",
 };

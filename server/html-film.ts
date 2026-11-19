@@ -4,7 +4,7 @@ import { load } from "cheerio";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { err } from "./db.js";
-import { ffmpegPath } from "./visual-runtime.js";
+import { ffmpegPath,visualBrowser } from "./visual-runtime.js";
 import { paginateText } from "../shared/visual.js";
 
 export type HtmlFilm = {
@@ -119,7 +119,7 @@ export async function renderHtmlFilm({
   documentUrl.hash = "";
   const address = documentUrl.href;
   const src = film.mode === "original" ? html : storyboard(scenes);
-  const browser = await chromium.launch({
+  const browser = await visualBrowser({
     chromiumSandbox: true,
     args: [
       "--disable-background-networking",

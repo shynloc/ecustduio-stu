@@ -1,3 +1,10 @@
+import {creationActions} from '../shared/actions';
+import {ConversationSidebar} from './conversations/ConversationSidebar';
+import {ContextPicker} from './conversations/ContextPicker';
+import {LiveTurn} from './conversations/LiveTurn';
+import {MessageActions} from './conversations/MessageActions';
+import {Link,Globe,Presentation,Film,WandSparkles,SlidersHorizontal} from 'lucide-react';
+import {CollectionBrowser} from './collections/CollectionBrowser';
 import {ChatAdaptation} from "./ChatAdaptation";
 import {useChatMaterials,ChatMaterials} from "./ChatMaterials";
 import {uid} from "./compat";
@@ -579,6 +586,9 @@ export function Explore({ data, act, go, search }: any) {
     [error, setError] = useState(""),
     [sending, setSending] = useState(false);
   const materials=useChatMaterials();
+  const [snapshots,setSnapshots]=useState<string[]>([]),[showContext,setShowContext]=useState(false),[budget,setBudget]=useState<any>(null),[url,setUrl]=useState(''),[showUrl,setShowUrl]=useState(false),[draftReady,setDraftReady]=useState('');
+  const draftChanged=useRef(false);
+
   const [target,setTarget]=useState<any>(null);
   const composer=useRef<HTMLTextAreaElement>(null);
   const request=useRef({key:"",signature:""});
@@ -594,7 +604,9 @@ export function Explore({ data, act, go, search }: any) {
   useEffect(() => {
     let live=true;
     Promise.all([lists(),readContext()]).then(([,context])=>{
-      if(live && context)setSelected(context.items.filter((i:any)=>i.ref.kind==="note").map((i:any)=>i.ref.id));
+      if(live && context){setSelected(context.items.filter((i:any)=>i.ref.kind==="note").map((i:any)=>i.ref.id));setSnapshots(context.items.filter((i:any)=>i.ref.kind==="snapshot").map((i:any)=>i.ref.id));
+        const m=context.items.find((i:any)=>i.ref.kind==='message');if(m)setPrompt('请根据这份内容继续：\n'+(m.value.content||'').slice(0,9000));
+      }
     }).catch(e=>live&&setError(e.message));
     return ()=>{live=false;};
   }, []);
@@ -606,15 +618,27 @@ export function Explore({ data, act, go, search }: any) {
     if(restoreSelection){
       const prior=c.messages.filter((m:any)=>m.role==="user").at(-1)?.context;
       materials.restore(prior?.attachments,prior?.sourceUrls);
-      setSelected(prior?.notes?.map((n:any)=>n.id)||[]);
+      if(!new URLSearchParams(location.hash.split('?')[1]).has('context')){setSelected(prior?.notes?.map((n:any)=>n.id)||[]);setSnapshots(prior?.snapshots?.map((n:any)=>n.id)||[]);}
       setMode(prior?.mode||"auto");setThinkingMode(prior?.requestedThinkingMode||"default");
       setWebEngine(prior?.webEngine||"default");setWebAction(prior?.webAction||"search");
     }
 
   }
   useEffect(()=>{
-    if(threadId)reloadConversation(threadId,true).catch(e=>routeMatches(threadId)&&setError(e.message));
+    if(!threadId){setCurrent(null);setTarget(null);setError('');}
   },[threadId]);
+  useEffect(()=>{
+    let live=true;draftChanged.current=false;setDraftReady('');setPrompt('');
+    const key=threadId||'new';
+    (async()=>{if(threadId)await reloadConversation(threadId,true);const r=await api('/workspace/preferences/chat-draft-'+key);if(!live||draftChanged.current)return;
+      const value=r.value,carryContext=new URLSearchParams(location.hash.split('?')[1]).has('context');
+      setPrompt(value?.prompt||creationActions.find(a=>a.id===new URLSearchParams(location.hash.split('?')[1]).get('task'))?.prompt||'');
+      if(value&&!carryContext){if(value.selected)setSelected(value.selected);if(value.snapshots)setSnapshots(value.snapshots);if(value.attachments)materials.restore(value.attachments,value.urls||[]);if(value.mode)setMode(value.mode);}
+    })().catch(e=>live&&setError(e.message)).finally(()=>live&&setDraftReady(key));
+    return()=>{live=false;};
+  },[threadId]);
+  useEffect(()=>{const key=threadId||'new';if(draftReady!==key)return;const t=setTimeout(()=>api('/workspace/preferences/chat-draft-'+key,{method:'PUT',body:JSON.stringify({value:{prompt,selected,snapshots,mode,attachments:materials.items.filter(i=>i.id).map(i=>({id:i.id,name:i.name})),urls:materials.items.filter(i=>i.url).map(i=>i.url)}})}).catch(e=>setError('草稿暂未保存：'+e.message)),600);return()=>clearTimeout(t);},[prompt,threadId,draftReady,selected.join(","),snapshots.join(","),mode,JSON.stringify(materials.items.map(i=>[i.id,i.url]))]);
+  useEffect(()=>{if(!current?.id)return;let live=true;const t=setTimeout(()=>post('/conversations/'+current.id+'/context-budget',{prompt,noteIds:selected,snapshotIds:snapshots,mode}).then(r=>live&&setBudget(r)).catch(()=>live&&setBudget(null)),450);return()=>{live=false;clearTimeout(t);};},[current?.id,prompt,selected.join(','),snapshots.join(','),mode]);
   const pendingFiles=current?.messages?.some((m:any)=>m.context.fileJobs?.some((j:any)=>["queued","running"].includes(j.state)));
   const activeIds=(current?.jobs||[]).filter((j:any)=>["queued","running"].includes(j.state)).map((j:any)=>j.id).join(",");
   useEffect(()=>{
@@ -642,6 +666,11 @@ export function Explore({ data, act, go, search }: any) {
       card?.focus({preventScroll:true});card?.scrollIntoView({block:"center"});
     }else end.current?.scrollIntoView({behavior:"smooth",block:"nearest"});
   },[current?.id,current?.messages?.length]);
+  useEffect(()=>{if(!current?.id)return;const cid=current.id,list=end.current?.parentElement;if(!list)return;let live=true,timer:ReturnType<typeof setTimeout>;
+    api('/workspace/preferences/chat-position-'+cid).then(r=>{if(live&&r.value?.top!==undefined&&!new URLSearchParams(location.hash.split('?')[1]).has('file'))list.scrollTop=r.value.top;}).catch(()=>{});
+    const save=()=>{clearTimeout(timer);timer=setTimeout(()=>api('/workspace/preferences/chat-position-'+cid,{method:'PUT',body:JSON.stringify({value:{top:list.scrollTop}})}).catch(()=>{}),500);};
+    list.addEventListener('scroll',save);return()=>{live=false;clearTimeout(timer);list.removeEventListener('scroll',save);};
+  },[current?.id]);
   const working = sending || !!(threadId && current?.id !== threadId) || materials.pending;
   async function send(e: any) {
     e.preventDefault();
@@ -655,7 +684,7 @@ export function Explore({ data, act, go, search }: any) {
         c = await post("/conversations");
         if(location.hash===origin)setCurrent({ ...c, messages: [], jobs: [] });
       }
-      const payload={prompt,mode,thinkingMode,webEngine,webAction,noteIds:selected,queueTurn:true,
+      const payload={prompt,mode,thinkingMode,webEngine,webAction,noteIds:selected,snapshotIds:snapshots,queueTurn:true,
         attachmentIds:materials.items.flatMap(i=>i.id?[i.id]:[]),sourceUrls:materials.items.flatMap(i=>i.url?[i.url]:[]),
         ...(target?.deriveKind?{derive:{kind:target.deriveKind,artifactId:target.id}}:target?{reviseId:target.id}:{})};
       const signature=JSON.stringify([c.id,payload]);
@@ -664,6 +693,8 @@ export function Explore({ data, act, go, search }: any) {
       request.current.signature="";
       if(location.hash!==origin)return;
       setPrompt("");setTarget(null);
+      await api('/workspace/preferences/chat-draft-'+(threadId||'new'),{method:'PUT',body:JSON.stringify({value:{prompt:'',selected,snapshots,mode,attachments:materials.items.filter(i=>i.id).map(i=>({id:i.id,name:i.name})),urls:materials.items.filter(i=>i.url).map(i=>i.url)}})});
+      window.dispatchEvent(new Event('ecu-conversations-changed'));
 
       if (threadId !== c.id) go("explore/" + c.id);
       await reloadConversation(c.id);
@@ -687,7 +718,7 @@ export function Explore({ data, act, go, search }: any) {
           onClick={() => {
             go("explore");
             setCurrent(null);
-            setSelected([]);materials.restore();setTarget(null);setPrompt("");
+            setSelected([]);setSnapshots([]);materials.restore();setTarget(null);setPrompt("");
             setError("");
           }}
         >
@@ -696,64 +727,7 @@ export function Explore({ data, act, go, search }: any) {
         </B>
       </Header>
       <div className="explore-layout">
-        <aside className="panel thread-panel">
-          <div className="section-head">
-            <h3>探索记录</h3>
-            <MessageSquare size={17} />
-          </div>
-          <div className="thread-list">
-            {threads
-              .filter((c) => c.title.includes(search || ""))
-              .map((c) => (
-                <button
-                  key={c.id}
-                  className={threadId === c.id ? "selected" : ""}
-                  onClick={() => go("explore/" + c.id)}
-                >
-                  <strong>{c.title}</strong>
-                  <small>{date(c.updated_at)}</small>
-                </button>
-              ))}
-            {!threads.length && (
-              <p className="muted">你的研究会话会保存在这里。</p>
-            )}
-          </div>
-          <div className="context-picker">
-            <h3>
-              <BookOpen size={16} />
-              笔记上下文
-            </h3>
-            <p className="muted">选中的笔记随本轮问题发送，最多8篇。</p>
-            {notes.map((n) => (
-              <label className="context-choice" key={n.id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(n.id)}
-                  disabled={
-                    working ||
-                    (!selected.includes(n.id) && selected.length >= 8)
-                  }
-                  onChange={(e) =>
-                    setSelected(
-                      e.target.checked
-                        ? [...selected, n.id]
-                        : selected.filter((id) => id !== n.id),
-                    )
-                  }
-                />
-                <span>
-                  {n.title}
-                  <small>版本 {n.revision}</small>
-                </span>
-              </label>
-            ))}
-            {!notes.length && (
-              <button className="text-link" onClick={() => go("notes")}>
-                先写一篇创作笔记 <ArrowUpRight size={14} />
-              </button>
-            )}
-          </div>
-        </aside>
+        <ConversationSidebar go={go} currentId={threadId} refresh={current?.messages?.length||0}/>
         <section className="panel conversation-panel" onDragOver={e=>{if(e.dataTransfer.types.includes("Files"))e.preventDefault();}}
           onDrop={e=>{if(e.dataTransfer.files.length){e.preventDefault();materials.add(Array.from(e.dataTransfer.files));}}}>
           <div className="conversation-heading">
@@ -815,16 +789,10 @@ export function Explore({ data, act, go, search }: any) {
                   {m.context.attachments?.map((a:any)=><a key={a.id} href={"/api/assets/"+a.id} download>{a.name}</a>)}
                   {m.context.sourceUrls?.map((url:string)=><span key={url}>{url}</span>)}
                   {m.context.targetTitle && <small>{m.context.adaptation ? "来源：" : "修订："}{m.context.targetTitle}</small>}
-                  {current.jobs.filter((j:any)=>j.id===m.job_id).map((j:any)=><div key={j.id} role="status">
-                    {({queued:"排队中",running:j.progress||"正在处理",succeeded:"已完成",failed:"未完成",interrupted:"任务中断",canceled:"已取消"} as any)[j.state]}
-                    {j.error?.message && <span> · {j.error.message}</span>}
-                    {["failed","interrupted","partial"].includes(j.state)&&<B secondary disabled={sending} onClick={async()=>{
-                      try{await post("/jobs/"+j.id+"/retry");await reloadConversation(current.id);}catch(e:any){setError(e.message);}
-                    }}>重试该轮</B>}
-                    {["queued","running"].includes(j.state)&&<button className="text-link" onClick={async()=>{
-                      try{await post("/jobs/"+j.id+"/cancel");await reloadConversation(current.id);}catch(e:any){setError(e.message);}
-                    }}>停止此任务</button>}
-                  </div>)}
+                  {m.context.snapshots?.length>0&&<small>原始资料：{m.context.snapshots.map((s:any)=>s.title).join('、')}</small>}
+                  {m.context.contextBudget&&<small>本轮参考 {m.context.contextBudget.fullCount} 份全文、{m.context.contextBudget.excerptCount} 份相关片段；历史记录保留。</small>}
+                  {current.jobs.filter((j:any)=>j.id===m.job_id&&j.state!=='succeeded').map((j:any)=><LiveTurn key={j.id+':'+j.state} id={j.id}/>)}
+
                 </div>}
                 {m.role === "assistant" && (
                   <>
@@ -833,6 +801,7 @@ export function Explore({ data, act, go, search }: any) {
                     {!m.context.adaptation && !m.context.confirmation && <ConversationFiles derive={(f:any,kind:string)=>{setTarget({...f,deriveKind:kind});setPrompt(kind==="wechat"?"用这份材料写一篇给家长看的公众号文章，用中式古典主题。":f.format==="html"?"把这份 HTML 按原网页样式做成 10 秒视频。":"把这份材料做成一分钟配音视频，先让我试听。");composer.current?.focus();}} allFiles={allFiles} revise={(f:any)=>{setTarget(f);composer.current?.focus();}} conversationId={current.id} message={m} reload={()=>reloadConversation(current.id)}/>}
                     <div className="ai-run-summary">
                       <small>{m.context.adaptation || m.context.confirmation ? (m.context.model||"本地排版") : <>{m.context.model || "DeepSeek"} · {{ disabled: "快速回答", low: "轻量思考", high: "深度思考", max: "最强思考" }[m.context.thinkingMode || "disabled"]} · {m.context.engine === "native" ? "官方联网" : "工作台检索"}</>}</small>
+                      {m.context.usage&&<small className="actual-token-usage">实际用量：输入 {m.context.usage.inputTokens??"未返回"} · 输出 {m.context.usage.outputTokens??"未返回"} token</small>}
                       {m.context.usage && <details>
                         <summary>查看用量与检索步骤</summary>
                         <p>输入 {m.context.usage.inputTokens ?? "未返回"} / 输出 {m.context.usage.outputTokens ?? "未返回"} token</p>
@@ -848,25 +817,8 @@ export function Explore({ data, act, go, search }: any) {
                       </p>
                     ))}
                     <Sources sources={m.sources} go={go} />
-                    <div className="message-actions">
-                      <B secondary onClick={() => openSpeech(go,"message",m.id,"探索回答配音",m.content)}>生成配音</B>
-                      <B
-                        secondary
-                        onClick={async () => {
-                          const n = await act(
-                            () =>
-                              post("/notes/from-message", { messageId: m.id }),
-                            "已添加到创作笔记",
-                          );
-                          if (n) {
-                            await lists();
-                          }
-                        }}
-                      >
-                        <BookOpen size={15} />
-                        添加到创作笔记
-                      </B>
-                    </div>
+                    <MessageActions message={m} conversationId={current.id} go={go} reload={()=>reloadConversation(current.id)} onPrompt={(text:string)=>{setPrompt(text);composer.current?.focus();}}/>
+
                   </>
                 )}
               </article>
@@ -882,7 +834,18 @@ export function Explore({ data, act, go, search }: any) {
             {(!data.settings.allowExternalAI || data.capabilities.deepseek!=="configured") && <small className="notice">新一轮 AI 创作需要连接并启用 DeepSeek。已有回答可直接导出。
               {data.user.role==="admin" && <button type="button" className="text-link" onClick={()=>go("settings")}>打开设置</button>}
             </small>}
-            <ChatMaterials materials={materials}/>
+            <div className="agent-tool-rail"><ChatMaterials materials={materials}/>
+              <EditorIconButton icon={BookOpen} label="添加知识库或原始资料" onClick={()=>setShowContext(true)}/>
+              <EditorIconButton icon={Link} label="添加网址" onClick={()=>setShowUrl(!showUrl)}/>
+              <EditorIconButton icon={Globe} label={mode==='local'?'启用联网检索':'仅使用本地资料'} aria-pressed={mode!=='local'} onClick={()=>setMode(mode==='local'?'auto':'local')}/>
+              <EditorIconButton icon={WandSparkles} label="优化我的要求" disabled={!prompt.trim()} onClick={()=>setPrompt('请先将下面的要求完善成清晰可执行的任务，明确目标、受众、材料与交付格式，再等我确认：\n'+prompt)}/>
+              <EditorIconButton icon={Presentation} label="制作PPT" onClick={()=>setPrompt(p=>p?p+'\n最终请制作可编辑 PPT。':'请根据本轮资料制作一份可编辑 PPT。')}/>
+              <EditorIconButton icon={Film} label="制作网页与视频" onClick={()=>setPrompt(p=>p?p+'\n先制作适合转换视频的 HTML。':'请根据本轮资料制作适合转换视频的 HTML 演示。')}/>
+            </div>
+            {showUrl&&<div className="agent-url-input"><input aria-label="公开网址" value={url} onChange={e=>setUrl(e.target.value)} placeholder="粘贴公开网页网址"/><button type="button" className="btn secondary" onClick={()=>{materials.addUrl(url);if(mode==='local')setMode('auto');setUrl('');setShowUrl(false);}}>加入本轮</button></div>}
+            {(selected.length>0||snapshots.length>0)&&<button className="context-summary" type="button" onClick={()=>setShowContext(true)}><BookOpen size={15}/>已选 {selected.length} 篇笔记 · {snapshots.length} 份原始资料 · 点击调整</button>}
+            {showContext&&<ContextPicker selected={selected} onChange={setSelected} snapshots={snapshots} onSnapshots={setSnapshots} close={()=>setShowContext(false)}/>}
+            {budget&&<details className="context-budget"><summary>本轮资料：{budget.fullCount} 份全文 · {budget.excerptCount} 份相关片段 · 输入约 {budget.estimatedInputTokens.toLocaleString()} token（估算）</summary><p>工作台输入上限 {budget.maximumChars.toLocaleString()} 字符。此估算包括选中资料和问题，不含附件解析、检索结果、系统指令与历史补充；实际用量见回答。长资料按当前问题选取相关片段，完整原文与对话仍保留。</p>{budget.retrievedOlderMessages>0&&<p>已从较早对话中取回 {budget.retrievedOlderMessages} 条原句摘录。</p>}</details>}
             {target && <div className="chat-source-chip">{target.deriveKind==="wechat"?"公众号文章来源":target.deriveKind==="video"?"视频来源":"修改"}：{target.title||target.name} · 第 {target.version||1} 版
               <button type="button" className="text-link" onClick={()=>setTarget(null)}>取消选择</button></div>}
             <details className="composer-settings"><summary>研究设置 {selected.length>0 && <span>已选 {selected.length} 篇笔记</span>}</summary>
@@ -925,7 +888,7 @@ export function Explore({ data, act, go, search }: any) {
               required
               maxLength={10000}
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {draftChanged.current=true;setPrompt(e.target.value);}}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
@@ -961,7 +924,7 @@ export function Notes({ data, act, go, search, busy }: any) {
   const item = location.hash.split("?")[0].split("/")[1] || "";
   const nid = item === "new" ? "" : item;
   const wechatPreview = new URLSearchParams(location.hash.split("?")[1] || "").get("wechatPreview");
-  const saving=useRef(false),composing=useRef(false);const [compositionTick,setCompositionTick]=useState(0);
+  const saving=useRef(false),composing=useRef(false),newDraftTouched=useRef(false);const [newDraftReady,setNewDraftReady]=useState(false),[draftStatus,setDraftStatus]=useState("");const [compositionTick,setCompositionTick]=useState(0);
   const load = () => api("/notes").then(setNotes);
   useEffect(() => {
     load().catch((e) => setError(e.message));
@@ -983,9 +946,19 @@ export function Notes({ data, act, go, search, busy }: any) {
       setCurrent(null);
       setTitle("");
       setBody("");setDocumentJson(null);setCategories({folder:"",tags:[],purposes:[],state:"inbox"});
+      setNewDraftReady(false);newDraftTouched.current=false;setDraftStatus("");
+      if(item==="new")api("/workspace/preferences/note-new-draft").then(r=>{
+        if(!active||newDraftTouched.current)return;
+        const v=r.value;if(v?.body||v?.title){setTitle(v.title||"");setBody(v.body||"");setDocumentJson(v.documentJson||null);if(v.categories)setCategories(v.categories);setDraftStatus("已恢复未完成的草稿");}
+      }).catch(e=>active&&setError("暂时无法恢复草稿："+e.message)).finally(()=>active&&setNewDraftReady(true));
     }
     setHistory([]);return ()=>{active=false;};
   }, [item]);
+  useEffect(()=>{
+    if(item!=="new"||current||!newDraftReady)return;
+    const timer=setTimeout(()=>api("/workspace/preferences/note-new-draft",{method:"PUT",body:JSON.stringify({value:{title,body,documentJson,categories}})}).then(()=>setDraftStatus("草稿已自动保存")).catch(e=>setError("草稿暂未保存："+e.message)),650);
+    return()=>clearTimeout(timer);
+  },[item,current,newDraftReady,title,body,documentJson,categories]);
   const dirty = !!current && (title !== current.title || body !== current.body || JSON.stringify(categories)!==JSON.stringify(current.categories) || JSON.stringify(documentJson)!==JSON.stringify(current.documentJson));
   useEffect(()=>{
     if(!dirty||!current||!title.trim()||!body.trim()||error)return;
@@ -1010,6 +983,7 @@ export function Notes({ data, act, go, search, busy }: any) {
     );
     if (n) {
       setCurrent(n);
+      if(!current)await api("/workspace/preferences/note-new-draft",{method:"PUT",body:JSON.stringify({value:null})});
       await load();
       go("notes/" + n.id + (wechatPreview ? "?wechatPreview=" + encodeURIComponent(wechatPreview) : ""));
     }
@@ -1027,17 +1001,15 @@ export function Notes({ data, act, go, search, busy }: any) {
   if(nid&&(!current||current.id!==nid))return <p role="status">{error||'正在读取笔记…'}</p>;
   if (!item) return <>
     <div className="page-heading">
-      <h1>笔记本</h1>
+      <h1>知识库</h1>
       <B onClick={() => go("notes/new")}><Plus size={16}/>新建笔记</B>
     </div>
     {error && <p role="alert">{error}</p>}
-    <NoteGallery notes={notes} search={search || ""} folder={folderFilter} onFolder={setFolderFilter}
-      onOpen={(id: string) => go("notes/" + id)}/>
-    <KnowledgeBatch notes={notes} disabled={false} onChange={load}/>
+    <CollectionBrowser kind="notes" go={go} search={search||''} onOpen={(id:string)=>go('notes/'+id)}/>
   </>;
   return (
     <>
-      <div className="notebook-detail-nav"><EditorIconButton icon={ArrowLeft} label="返回笔记本" onClick={() => go("notes")}/></div>
+      <div className="notebook-detail-nav"><EditorIconButton icon={ArrowLeft} label="返回知识库" onClick={() => go("notes")}/></div>
         <section className="panel note-editor" onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;setCompositionTick(x=>x+1);}}>
           <div className="section-head">
             <h2>{current ? "编辑笔记" : "写下一个新想法"}</h2>
@@ -1046,7 +1018,7 @@ export function Notes({ data, act, go, search, busy }: any) {
                 ? "编辑后自动保存…"
                 : current
                   ? "已保存 · v" + current.revision
-                  : "新笔记"}
+                  : draftStatus||"新笔记"}
             </span>
           </div>
           {error && <p role="alert">{error}</p>}
@@ -1056,11 +1028,11 @@ export function Notes({ data, act, go, search, busy }: any) {
             <input
               value={title}
               maxLength={200}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {newDraftTouched.current=true;setTitle(e.target.value);}}
               placeholder="给这个想法起个名字"
             />
           </F>
-          <DocumentReader markdownWorkspace key={current?.id||'new'} label="笔记内容" text={body} onChange={(v:string,j:any)=>{setBody(v);setDocumentJson(j??null);}} documentJson={documentJson} maxLength={100000} sources={current?.sources||[]}/>
+          <DocumentReader markdownWorkspace key={current?.id||'new'} label="笔记内容" text={body} onChange={(v:string,j:any)=>{newDraftTouched.current=true;setBody(v);setDocumentJson(j??null);}} documentJson={documentJson} maxLength={100000} sources={current?.sources||[]}/>
           <details className="note-classification"><summary>整理笔记 · 文件夹、标签与用途</summary><div className="form-grid"><F label="文件夹"><input value={categories.folder} onChange={e=>setCategories({...categories,folder:e.target.value})}/></F><F label="标签（逗号分隔）"><TagInput value={categories.tags} onChange={(tags:string[])=>setCategories({...categories,tags})}/></F><F label="用途（逗号分隔）"><TagInput value={categories.purposes} onChange={(purposes:string[])=>setCategories({...categories,purposes})}/></F><F label="整理状态"><select value={categories.state} onChange={e=>setCategories({...categories,state:e.target.value})}>{Object.entries({inbox:'收件箱',organized:'已整理','needs-review':'待复核',archived:'已归档'}).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></F></div></details>
           <div className="note-action-icons" role="group" aria-label="笔记操作">
             <EditorIconButton icon={Save} label="保存笔记" className="editor-save"

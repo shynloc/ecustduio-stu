@@ -1,7 +1,7 @@
 import { wechatThemeLabels } from "../shared/wechat-themes";
 import React, { useEffect, useRef, useState } from "react";
 import { api, post, put, upload } from "./api";
-import { MarkdownSourceEditor } from "./MarkdownSourceEditor";
+import { DocumentReader } from "./DocumentReader";
 import {
   FilePlus2,
   NotebookPen,
@@ -499,6 +499,7 @@ export function WechatEditor({ go, id, data, route }: any) {
     };
   }, []);
   function update(patch: Partial<Content>) {
+    if(Object.entries(patch).every(([key,value])=>m.current[key as keyof Content]===value))return;
     if (!m.revision && !changed()) markRoute(m.id);
     edit(patch);
   }
@@ -792,13 +793,11 @@ export function WechatEditor({ go, id, data, route }: any) {
                 />
               </label>
               <fieldset disabled={busy}>
-                <MarkdownSourceEditor
+                <DocumentReader
                   text={content.body}
-                  label="公众号 Markdown 正文"
-                  imageLabel="选择文章图片"
-                  placeholder="从这里开始写正文，或粘贴 Markdown…"
+                  label="公众号正文"
                   maxLength={100000}
-                  onChange={(body) => update({ body })}
+                  onChange={(body: string) => update({ body })}
                 />
               </fieldset>
               <details className="wechat-options">

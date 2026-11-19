@@ -1,5 +1,8 @@
 import React from "react";
-import { marked } from "marked";
+import { Marked } from "marked";
+import { PreservedBlock, PreservedInline } from "../shared/document";
+import { protectedHtml } from "./documents/PreservedContent";
+const markdown = new Marked({extensions:[PreservedBlock,PreservedInline].map(e=>{const t:any=e.config.markdownTokenizer;return {name:t.name,level:t.level,start:t.start,tokenizer:t.tokenize};})});
 // Render Markdown as React elements. AI answers restrict links to registered sources. Notes can also link to web pages.
 export function Answer({ text, sources = [], noteLinks = false }: any) {
   const links = new Set(
@@ -8,6 +11,8 @@ export function Answer({ text, sources = [], noteLinks = false }: any) {
   const inline = (tokens: any[]): any =>
     tokens?.map((t: any, i: number) => {
       const child = t.tokens ? inline(t.tokens) : t.text;
+      if (t.type === 'preservedInline') return <span key={i} dangerouslySetInnerHTML={{__html:protectedHtml(t.raw,t.kind,true)}}/>;
+      if (t.type === 'html') return <span key={i} dangerouslySetInnerHTML={{__html:protectedHtml(t.raw,'html',true)}}/>;
       if (t.type === "strong") return <strong key={i}>{child}</strong>;
       if (t.type === "em") return <em key={i}>{child}</em>;
       if (t.type === "codespan") return <code key={i}>{t.text}</code>;
@@ -26,6 +31,7 @@ export function Answer({ text, sources = [], noteLinks = false }: any) {
     });
   const blocks = (tokens: any[]): any =>
     tokens.map((t: any, i: number) => {
+      if (t.type === 'preservedBlock' || t.type === 'html') return <div key={i} className="preserved-reading" dangerouslySetInnerHTML={{__html:protectedHtml(t.raw,t.kind||'html')}}/>;
       if (t.type === "heading") {const Tag=('h'+Math.min(6,Math.max(2,t.depth))) as 'h2';return <Tag key={i}>{inline(t.tokens)}</Tag>;}
       if (t.type === "paragraph" || t.type === "text")
         return <p key={i}>{t.tokens ? inline(t.tokens) : t.text}</p>;
@@ -74,5 +80,5 @@ export function Answer({ text, sources = [], noteLinks = false }: any) {
       if (t.type === "space") return null;
       return <p key={i}>{t.text || t.raw}</p>;
     });
-  return <div className="answer-body">{blocks(marked.lexer(text || ""))}</div>;
+  return <div className="answer-body">{blocks(markdown.lexer(text || ""))}</div>;
 }
