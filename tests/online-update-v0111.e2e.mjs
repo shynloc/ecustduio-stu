@@ -3,6 +3,7 @@ import {cpSync,mkdirSync,mkdtempSync,writeFileSync,readFileSync,existsSync,symli
 import {join,resolve} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
 import {createServer} from 'node:net';
+import {pathToFileURL} from 'node:url';
 import {chromium} from 'playwright';
 import {systemAdapter,inventory} from '../deployment/upgrade.mjs';
 if(process.platform!=='win32')throw new Error('Windows real online-upgrade test');
@@ -13,9 +14,19 @@ symlinkSync(resolve('node_modules'),join(target,'app/node_modules'),'junction');
 if(process.env.ECUSTUDIO_TEST_BROWSER_CACHE){mkdirSync(join(target,'runtime'),{recursive:true});cpSync(resolve(process.env.ECUSTUDIO_TEST_BROWSER_CACHE),join(target,'runtime/browsers'),{recursive:true});}
 const port=await new Promise(r=>{const s=createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>r(p));});});
 writeFileSync(join(target,'ecustudio.json'),JSON.stringify({port,networkMode:'local'}));mkdirSync(join(target,'data/logs'),{recursive:true});
-const child=spawn(process.execPath,[join(target,'app/dist-server/server/index.js')],{cwd:join(target,'app'),env:{...process.env,ECUSTUDIO_DATA_DIR:join(target,'data'),PORT:String(port),ECUSTUDIO_NETWORK_MODE:'local',DEEPSEEK_API_KEY:''},windowsHide:true,stdio:'ignore'});
+// Before promoting the stable channel, exercise the unchanged old client against
+// the candidate signed HTTP feed. Download URLs/signature verification stay real.
+const previewFeed=process.env.ECUSTUDIO_TEST_RELEASE_FEED;
+let nodeOptions=process.env.NODE_OPTIONS||'';
+if(previewFeed){
+ const u=new URL(previewFeed);assert.equal(u.origin,'https://dshdisk.acks.com.cn');assert.match(u.pathname,/^\/ecustudio\/0\.11\.1\/stable\.json$/);
+ const preload=join(folder,'candidate-feed.mjs');
+ writeFileSync(preload,"const original=globalThis.fetch;globalThis.fetch=(input,init)=>{const url=String(input);return original(url.startsWith('https://dshdisk.acks.com.cn/ecustudio/releases/stable.json')?"+JSON.stringify(previewFeed)+"+(url.includes('?')?url.slice(url.indexOf('?')):''):input,init);};");
+ nodeOptions+=' --import='+pathToFileURL(preload).href;
+}
+const child=spawn(process.execPath,[join(target,'app/dist-server/server/index.js')],{cwd:join(target,'app'),env:{...process.env,NODE_OPTIONS:nodeOptions,ECUSTUDIO_DATA_DIR:join(target,'data'),PORT:String(port),ECUSTUDIO_NETWORK_MODE:'local',DEEPSEEK_API_KEY:''},windowsHide:true,stdio:'ignore'});
 writeFileSync(join(target,'data/logs/server.pid'),String(child.pid));const base='http://127.0.0.1:'+port;
-const result={version:'0.11.1',fixture:'unmodified published 0.11.0 installation -> signed public 0.11.1 update',startedAt:new Date().toISOString(),target,checks:[]};let browser;
+const result={version:'0.11.1',fixture:'unmodified published 0.11.0 installation -> signed public 0.11.1 update',startedAt:new Date().toISOString(),target,feed:previewFeed||'https://dshdisk.acks.com.cn/ecustudio/releases/stable.json',checks:[]};let browser;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function session(){const r=await fetch(base+'/api/session'),b=await r.json();return {cookie:r.headers.get('set-cookie')?.split(';')[0],csrf:b.csrf};}
 async function request(s,path,body,method=body?'POST':'GET'){const r=await fetch(base+'/api'+path,{method,headers:{cookie:s.cookie,'x-csrf-token':s.csrf,'content-type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(25000)});const b=await r.json();if(r.headers.get('set-cookie'))s.cookie=r.headers.get('set-cookie').split(';')[0];if(b.csrf)s.csrf=b.csrf;return {status:r.status,body:b};}
