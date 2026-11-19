@@ -27,7 +27,6 @@ import {
   ArrowUpRight,
   Trash2,
   ShieldCheck,
-  Leaf,
   ExternalLink,
   LoaderCircle,
   FileText,
@@ -37,6 +36,7 @@ import {
 import { api, post, patch, init } from "./api";
 import { applyTheme } from "./theme";
 import "./workspace.css";
+import { BrandMark } from "./BrandMark";
 import { Answer } from "./Answer";
 import { openSpeech } from "./MediaStudio";
 export const roleNames: any = {
@@ -110,19 +110,19 @@ export function AuthScreen({ session, onAuth }: any) {
     <main className="auth-screen">
       <section className="auth-story">
         <span className="eyebrow">ECUSTUDIO / YOUR CREATIVE DESK</span>
-        <Leaf size={44} />
+        <BrandMark size={64} />
         <h1>
           每一次创作，
           <br />
           从有据可循开始。
         </h1>
         <p>
-          教育情报 · AI 研究 · 创作笔记
+          知识整理 · AI 协作 · 内容创作
           <br />
           把资料连接起来，把想法写成内容。
         </p>
         <div className="auth-rule" />
-        <small>书院 · 本地工作空间</small>
+        <small>EcuStudio · 让知识成为作品</small>
       </section>
       <section className="auth-card">
         <span className="eyebrow">
@@ -1219,7 +1219,7 @@ export function CreatorSettings({ data, act }: any) {
         <h2>界面主题</h2>
         <div className="theme-options">
           {[
-            ["scholar", "书院 · Scholar"],
+            ["scholar", "晴空 · Daylight"],
             ["obsidian", "曜石 · Obsidian"],
           ].map(([theme, label]) => (
             <button

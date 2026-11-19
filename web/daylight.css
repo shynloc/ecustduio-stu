@@ -1,0 +1,103 @@
+/* Daylight replaces Scholar visually; the persisted scholar ID stays compatible. */
+.brand-symbol { display: block; flex: none; object-fit: contain; }
+.auth-screen { margin-left: 0; width: 100%; }
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 0;
+  background: none;
+  transform: none;
+}
+.brand strong {
+  font-family: "Bahnschrift", "Avenir Next", "Aptos Display", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.9px;
+}
+.theme-option strong { font-family: inherit; font-weight: 650; }
+
+:root:not([data-theme="obsidian"]) { --font-heading: "Microsoft YaHei UI", "PingFang SC", sans-serif; }
+:root:not([data-theme="obsidian"]) ::selection { background: #dce6ff; color: #182740; }
+:root:not([data-theme="obsidian"]) .sidebar { background: #fff; }
+:root:not([data-theme="obsidian"]) .brand { color: #182740; }
+:root:not([data-theme="obsidian"]) .topbar { background: #ffffffed; }
+:root:not([data-theme="obsidian"]) .workspace { background: #f5f7fc; }
+:root:not([data-theme="obsidian"]) .sidebar nav a.active {
+  color: #fff;
+  background: #2457f5;
+  box-shadow: 0 5px 14px #2457f522;
+}
+:root:not([data-theme="obsidian"]) .nav-dot { background: #ffad5a; }
+:root:not([data-theme="obsidian"]) .eyebrow { color: #365a96; }
+:root:not([data-theme="obsidian"]) .btn:not(.secondary) { box-shadow: 0 4px 10px #2457f51a; }
+:root:not([data-theme="obsidian"]) .btn:not(.secondary):enabled:hover { background: #1745d7; }
+:root:not([data-theme="obsidian"]) :is(button, a):focus-visible {
+  outline: 3px solid #7198ff;
+  outline-offset: 3px;
+}
+:root:not([data-theme="obsidian"]) :is(input, textarea, select):focus {
+  border-color: #2457f5;
+  box-shadow: 0 0 0 3px #2457f516;
+}
+:root:not([data-theme="obsidian"]) .status-dot.on {
+  background: var(--theme-positive);
+  box-shadow: 0 0 0 3px #087d6812;
+}
+:root:not([data-theme="obsidian"]) .experience-hero {
+  background: #fff;
+  box-shadow: 0 8px 32px #28426b08;
+  gap: 32px;
+}
+:root:not([data-theme="obsidian"]) .experience-hero h2 { font-weight: 750; letter-spacing: -0.055em; }
+:root:not([data-theme="obsidian"]) .experience-hero-copy > .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #2457f5;
+}
+:root:not([data-theme="obsidian"]) .experience-hero-copy > .eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: #ed792a;
+}
+:root:not([data-theme="obsidian"]) .dashboard-command {
+  border-color: #ccd8f0;
+  box-shadow: 0 5px 18px #2457f508;
+}
+:root:not([data-theme="obsidian"]) .dashboard-command:focus-within {
+  border-color: #2457f5;
+  box-shadow: 0 0 0 3px #2457f510;
+}
+:root:not([data-theme="obsidian"]) .dashboard-command textarea:focus { box-shadow: none; }
+:root:not([data-theme="obsidian"]) .experience-hero-scene {
+  border-radius: 16px;
+  color: #fff;
+  background-color: #2457f5;
+  background-image: linear-gradient(#ffffff0d 1px, transparent 1px), linear-gradient(90deg, #ffffff0d 1px, transparent 1px);
+  background-size: 36px 36px;
+  overflow: hidden;
+}
+:root:not([data-theme="obsidian"]) .scene-navigation { gap: 6px; padding: 0 10px; }
+:root:not([data-theme="obsidian"]) .scene-navigation button {
+  color: #fff;
+  border-color: #ffffff50;
+  background: #143cc3;
+}
+:root:not([data-theme="obsidian"]) .scene-navigation button:hover { background: #0f2f9b; }
+:root:not([data-theme="obsidian"]) .scene-motion { color: #fff; opacity: 1; top: 8px; right: 8px; }
+:root:not([data-theme="obsidian"]) .scene-paper-stack { color: #2457f5; }
+:root:not([data-theme="obsidian"]) .creation-card-sample { color: #2457f5; background: #edf2ff; }
+:root:not([data-theme="obsidian"]) :is(.creation-html, .creation-html-video) .creation-card-sample { color: #145c81; background: #e8f5fc; }
+:root:not([data-theme="obsidian"]) :is(.creation-video, .creation-gif) .creation-card-sample { color: #b84b12; background: #fff1e5; }
+:root:not([data-theme="obsidian"]) .creation-card:hover { border-color: #b4c8ff; box-shadow: 0 12px 28px #2457f511; }
+:root:not([data-theme="obsidian"]) .auth-screen { background: #f3f6fc; }
+:root:not([data-theme="obsidian"]) .auth-story { color: #182740; }
+:root:not([data-theme="obsidian"]) .auth-story h1 { font-family: var(--font-heading); font-weight: 750; }
+:root:not([data-theme="obsidian"]) .auth-rule { width: 64px; height: 4px; background: #ed792a; border-radius: 2px; }
+:root:not([data-theme="obsidian"]) .auth-card { border-top: 4px solid #2457f5; box-shadow: 0 18px 64px #28426b0d; }
+@media (max-width: 760px) {
+  :root:not([data-theme="obsidian"]) .experience-hero { gap: 22px; }
+  :root:not([data-theme="obsidian"]) .experience-hero-scene { height: 210px; }
+  :root:not([data-theme="obsidian"]) .scene-navigation { bottom: 12px; }
+}

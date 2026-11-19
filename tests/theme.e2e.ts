@@ -49,7 +49,7 @@ try {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "scholar");
   const theme = page.getByRole("region", { name: "界面主题" }),
     dark = theme.getByRole("button", { name: /曜石/ }),
-    light = theme.getByRole("button", { name: /书院/ });
+    light = theme.getByRole("button", { name: /晴空/ });
   await page
     .getByLabel("模型名称", { exact: true })
     .fill("unsaved-model-fixture");

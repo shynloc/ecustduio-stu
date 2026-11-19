@@ -125,7 +125,7 @@ try {
       await page.evaluate((t) => {
         document.documentElement.dataset.theme = t;
         document.documentElement.style.backgroundColor =
-          t === "obsidian" ? "#090d13" : "#f6f5f1";
+          t === "obsidian" ? "#090d13" : "#f3f6fc";
         document.documentElement.style.colorScheme =
           t === "obsidian" ? "dark" : "light";
       }, theme);

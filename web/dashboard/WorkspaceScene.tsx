@@ -42,7 +42,7 @@ export default function WorkspaceScene({
         const colors =
           theme === "obsidian"
             ? [0x7fe4ce, 0xceb7ff, 0xf5c17e]
-            : [0x4c8774, 0xd49a69, 0xa9b8aa];
+            : [0x2457f5, 0xed792a, 0x1686b5];
         const group = new T.Group();
         scene.add(group);
         const picks: any[] = [],
@@ -53,7 +53,7 @@ export default function WorkspaceScene({
           card.rotation.set(-0.16, (i - 1) * -0.14, (i - 1) * -0.08);
           const geo = new T.BoxGeometry(1.32, 1.7, 0.12),
             mat = new T.MeshStandardMaterial({
-              color: theme === "obsidian" ? 0x223246 : 0xfbfaf4,
+              color: theme === "obsidian" ? 0x223246 : 0xf4f7ff,
               roughness: 0.6,
               metalness: 0.1,
             });
@@ -92,7 +92,7 @@ export default function WorkspaceScene({
         const orbit = new T.Mesh(
           new T.TorusGeometry(2.65, 0.012, 8, 100),
           new T.MeshBasicMaterial({
-            color: colors[0],
+            color: theme === "obsidian" ? colors[0] : 0xffffff,
             transparent: true,
             opacity: 0.2,
           }),

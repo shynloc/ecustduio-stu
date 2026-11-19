@@ -48,7 +48,7 @@ import {
   BookOpen,
   CheckCircle2,
   Send,
-  Leaf,
+  Palette,
   SlidersHorizontal,
   ExternalLink,
   ChevronDown,
@@ -65,6 +65,8 @@ import { api, init, post, put, patch, upload } from "./api";
 import { kindNames, DeepSeekSettings } from "../shared/schema";
 import "./style.css";
 import "./themes.css";
+import "./daylight.css";
+import { BrandMark } from "./BrandMark";
 import { applyTheme, type Theme } from "./theme";
 import { uid, copyText } from "./compat";
 import { productionTemplates } from "../shared/production";
@@ -379,7 +381,7 @@ function AuthApp() {
   if (!session)
     return (
       <div className="boot">
-        <Leaf size={36} />
+        <BrandMark size={48} />
         <h1>EcuStudio</h1>
         <p>{error || "正在连接工作空间…"}</p>
         {error && <Button onClick={refresh}>重新连接</Button>}
@@ -468,7 +470,7 @@ function App({ onLogout }: any) {
   if (!data)
     return (
       <div className="boot">
-        <Leaf size={36} />
+        <BrandMark size={48} />
         <h1>EcuStudio</h1>
         <p>{error || "正在连接本地工作空间…"}</p>
         {error && <Button onClick={() => location.reload()}>重新连接</Button>}
@@ -479,7 +481,7 @@ function App({ onLogout }: any) {
       <aside className={"sidebar " + (mobileNav ? "open" : "")}>
         <a className="brand" href="#dashboard">
           <span className="brand-mark">
-            <Leaf size={23} />
+            <BrandMark decorative />
           </span>
           <div>
             <strong>
@@ -4009,7 +4011,7 @@ function SettingsPage({ data, act, setModal, section }: any) {
         <section className="panel settings-card full" aria-label="界面主题">
           <div className="section-head">
             <h2>
-              <Leaf size={21} />
+              <Palette size={21} />
               界面主题
             </h2>
             <span className="muted">选择即自动保存</span>
@@ -4019,8 +4021,8 @@ function SettingsPage({ data, act, setModal, section }: any) {
               [
                 [
                   "scholar",
-                  "书院 · Scholar",
-                  "暖白纸面 · 墨绿导航 · 日常研究",
+                  "晴空 · Daylight",
+                  "冷白画布 · 明亮蓝 · 创作橙",
                   "默认",
                 ],
                 [
@@ -4060,7 +4062,7 @@ function SettingsPage({ data, act, setModal, section }: any) {
             {themeSaving
               ? "正在保存主题…"
               : themeError ||
-                "主题已保存，刷新或重新启动后继续使用。书院为初始默认主题。"}
+                "主题已保存，刷新或重新启动后继续使用。晴空为初始默认主题。"}
           </div>
           <p>此处只保存界面主题。导出文件继续使用原有版式。</p>
         </section>

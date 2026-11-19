@@ -26,7 +26,7 @@ async function call(method: any, url: string, payload?: any, extra: any = {}) {
     payload,
   });
 }
-test("主题默认书院；切换只更新主题，重开保留，拒绝非法主题与旧版本", async () => {
+test("主题默认晴空（保留 scholar 标识）；切换只更新主题，重开保留，拒绝非法主题与旧版本", async () => {
   const initial = D.settings();
   assert.equal(initial.theme, "scholar");
   const r = await call("PATCH", "/api/settings/theme", {

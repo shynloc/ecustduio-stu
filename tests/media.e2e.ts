@@ -35,7 +35,7 @@ try{
   await page.getByLabel("媒体文件").setInputFiles({name:"录音.wav",mimeType:"audio/wav",buffer:W.makeWav(Buffer.alloc(48000*2),48000)});await expect(page.getByLabel("任务标题")).toHaveValue("录音");
   const uploaded=D.get("SELECT * FROM assets ORDER BY created_at DESC LIMIT 1");assert.equal(W.readWav(A.assetBuffer(uploaded.id).data).sampleRate,16000);
   for(const theme of ["scholar","obsidian"]){
-    await page.evaluate(t=>{document.documentElement.dataset.theme=t;document.documentElement.style.backgroundColor=t==="obsidian"?"#090d13":"#f6f5f1";document.documentElement.style.colorScheme=t==="obsidian"?"dark":"light";},theme);await page.setViewportSize({width:390,height:844});
+    await page.evaluate(t=>{document.documentElement.dataset.theme=t;document.documentElement.style.backgroundColor=t==="obsidian"?"#090d13":"#f3f6fc";document.documentElement.style.colorScheme=t==="obsidian"?"dark":"light";},theme);await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
     assert.equal(await page.locator('.media-form input,.media-form textarea,.media-form select').evaluateAll(elements=>elements.every(e=>e.getBoundingClientRect().right<=e.closest('.media-main')!.getBoundingClientRect().right-10)),true);
     await page.screenshot({path:out+"/mobile-"+theme+".png",fullPage:true});

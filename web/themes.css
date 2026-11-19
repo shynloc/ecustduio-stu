@@ -1,4 +1,27 @@
-/* Scholar uses the unchanged fallback colors in style.css. */
+/* The light theme retains its original persisted ID for existing accounts. */
+:root {
+  color-scheme: light;
+  --theme-bg: #f3f6fc;
+  --theme-surface: #ffffff;
+  --theme-raised: #edf2fc;
+  --theme-text: #182740;
+  --theme-muted: #54657d;
+  --theme-subtle: #63748d;
+  --theme-accent: #2457f5;
+  --theme-on-accent: #ffffff;
+  --theme-gold: #c75113;
+  --theme-line: #dbe3f0;
+  --theme-wash: #2457f50b;
+  --theme-positive: #08745f;
+  --theme-positive-bg: #edf8f4;
+  --theme-positive-line: #b9dfd3;
+  --theme-warning: #995b0e;
+  --theme-warning-bg: #fff6e8;
+  --theme-warning-line: #edd6b5;
+  --theme-danger: #b43742;
+  --theme-danger-bg: #fff0f1;
+  --theme-danger-line: #efc5cb;
+}
 :root[data-theme="obsidian"] {
   color-scheme: dark;
   --theme-bg: #090d13;
@@ -72,21 +95,21 @@
   display: flex;
   gap: 6px;
   padding: 10px;
-  border: 1px solid #dce1d5;
-  background: #f6f5f1;
+  border: 1px solid #dbe3f0;
+  background: #f3f6fc;
 }
 .theme-swatch i {
   height: 100%;
   border-radius: 3px;
-  background: #23483d;
+  background: #2457f5;
   width: 18%;
 }
 .theme-swatch i:nth-child(2) {
-  background: #e5e8dc;
+  background: #edf2fc;
   width: 50%;
 }
 .theme-swatch i:nth-child(3) {
-  background: #c49b67;
+  background: #ffad5a;
   width: 22%;
 }
 .obsidian .theme-swatch {
