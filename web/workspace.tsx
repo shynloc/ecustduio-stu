@@ -627,12 +627,13 @@ export function Explore({ data, act, go, search }: any) {
   useEffect(()=>{
     if(!threadId){setCurrent(null);setTarget(null);setError('');}
   },[threadId]);
+  useEffect(()=>{const refresh=()=>{if(threadId)reloadConversation(threadId).catch(e=>setError(e.message));};window.addEventListener('ecu-job-refresh',refresh);return()=>window.removeEventListener('ecu-job-refresh',refresh);},[threadId]);
   useEffect(()=>{
     let live=true;draftChanged.current=false;setDraftReady('');setPrompt('');
     const key=threadId||'new';
     (async()=>{if(threadId)await reloadConversation(threadId,true);const r=await api('/workspace/preferences/chat-draft-'+key);if(!live||draftChanged.current)return;
       const value=r.value,carryContext=new URLSearchParams(location.hash.split('?')[1]).has('context');
-      setPrompt(value?.prompt||creationActions.find(a=>a.id===new URLSearchParams(location.hash.split('?')[1]).get('task'))?.prompt||'');
+      if(!carryContext)setPrompt(value?.prompt||creationActions.find(a=>a.id===new URLSearchParams(location.hash.split('?')[1]).get('task'))?.prompt||'');
       if(value&&!carryContext){if(value.selected)setSelected(value.selected);if(value.snapshots)setSnapshots(value.snapshots);if(value.attachments)materials.restore(value.attachments,value.urls||[]);if(value.mode)setMode(value.mode);}
     })().catch(e=>live&&setError(e.message)).finally(()=>live&&setDraftReady(key));
     return()=>{live=false;};
