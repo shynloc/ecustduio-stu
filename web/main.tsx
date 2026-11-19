@@ -834,47 +834,6 @@ function Dashboard({ data, act, go, setModal, busy }: any) {
           </Button>
         </aside>
       </div>
-      <div className="section-head lower">
-        <div>
-          <span className="eyebrow">CONTINUE CREATING</span>
-          <h2>最近的创作</h2>
-        </div>
-        <button className="text-link" onClick={() => go("projects")}>
-          查看项目 <ArrowUpRight size={16} />
-        </button>
-      </div>
-      <div className="project-strip">
-        {data.projects.slice(0, 3).map((p: any) => (
-          <button
-            className="project-tile"
-            onClick={() => go("project/" + p.id)}
-            key={p.id}
-          >
-            <span className="tile-icon">
-              <FileText />
-            </span>
-            <div>
-              <Badge>
-                {p.scope.stage} · {p.scope.year}
-              </Badge>
-              <h3>{p.title}</h3>
-              <p>{fmt(p.created_at)}</p>
-            </div>
-            <ArrowUpRight size={18} />
-          </button>
-        ))}
-        <button
-          className="new-project-tile"
-          onClick={() => setModal({ type: "project", title: "新建创作项目" })}
-        >
-          <Plus size={25} />
-          <strong>为下一个想法留一个位置</strong>
-          <span>新建项目</span>
-        </button>
-      </div>
-      {!!data.recentNotes?.length && <section className="panel pipeline-form lower"><h2>最近编辑的笔记</h2>
-        {data.recentNotes.map((n:any)=><button key={n.id} className="text-link" onClick={()=>go("notes/"+n.id)}>{n.title}</button>)}
-      </section>}
     </>
   );
 }
@@ -973,12 +932,7 @@ function ImportForm({ act, close, go, initialOcr }: any) {
         </Field>
       ) : tab === "text" ? (
         <Field label="原文内容">
-          <textarea
-            rows={7}
-            placeholder="粘贴政策原文，保留标题、来源与条件…"
-            value={form.text}
-            onChange={(e) => set("text", e.target.value)}
-          />
+          <DocumentReader label="原文内容" text={form.text} onChange={(text:string)=>set("text",text)}/>
         </Field>
       ) : (
         <Field
@@ -1014,12 +968,7 @@ function ImportForm({ act, close, go, initialOcr }: any) {
             }}
           />
           {file && (
-            <textarea
-              rows={5}
-              value={form.text}
-              onChange={(e) => set("text", e.target.value)}
-              aria-label="提取预览"
-            />
+            <DocumentReader label="提取预览" text={form.text} onChange={(text:string)=>set("text",text)}/>
           )}
           {ocrStatus && <div role="status">{ocrStatus}</div>}
           {ocrWarnings.map((warning, i) => (

@@ -30,6 +30,7 @@ export function DashboardStart({ data, go }: any) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [recent, setRecent] = useState<any[]>([]);
+  const resumeItems=[...recent,...data.projects.slice(0,3).map((p:any)=>({...p,label:"项目",route:"project/"+p.id,updated_at:p.updated_at||p.created_at}))].sort((a,b)=>b.updated_at.localeCompare(a.updated_at)).slice(0,3);
   const materials = useChatMaterials();
   useEffect(() => {
     let live = true;
@@ -214,12 +215,12 @@ export function DashboardStart({ data, go }: any) {
           </button>
         </div>
         <div className="resume-cards">
-          {recent.map((r) => (
+          {resumeItems.map((r) => (
             <button key={r.route} onClick={() => go(r.route)}>
               <span>
                 {r.label === "笔记" ? (
                   <FileText size={19} />
-                ) : (
+                ) : r.label === "项目" ? <FolderOpen size={19}/> : (
                   <Clock size={19} />
                 )}
                 <small>{r.label}</small>
@@ -230,15 +231,6 @@ export function DashboardStart({ data, go }: any) {
               </small>
             </button>
           ))}
-          {data.projects
-            .slice(0, Math.max(0, 3 - recent.length))
-            .map((p: any) => (
-              <button key={p.id} onClick={() => go("project/" + p.id)}>
-                <FolderOpen size={19} />
-                <strong>{p.title}</strong>
-                <small>继续项目</small>
-              </button>
-            ))}
           {!recent.length && !data.projects.length && (
             <button onClick={() => go("input")}>
               <Plus size={22} />

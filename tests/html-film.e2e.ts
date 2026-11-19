@@ -119,6 +119,8 @@ try {
   await page.getByRole("button", { name: "发送", exact: true }).click();
   const chat = await render("chat-original");
   await page.goto(url + "/#project/" + project.id);
+  await page.getByRole("tab", {name:/作品/}).click();
+  await page.getByText("网页、动图与视频制作", {exact:true}).click();
   await page.getByText("HTML 转视频", { exact: true }).click();
   await page.getByLabel("视频源 HTML").setInputFiles(source);
   await page.getByLabel("时长（秒）").fill("2");
@@ -155,6 +157,8 @@ try {
   const bg = pixels(board, "0.20");
   assert.ok(bg[0] > 210 && bg[1] > 210);
   await page.reload();
+  await page.getByRole("tab", {name:/作品/}).click();
+  await page.getByText("网页、动图与视频制作", {exact:true}).click();
   await page.getByText("HTML 转视频", { exact: true }).click();
   await expect(page.getByRole("link", { name: "下载 MP4" })).toHaveCount(2);
   assert.equal(

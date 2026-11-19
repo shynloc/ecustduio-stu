@@ -44,7 +44,7 @@ try {
     await page.setViewportSize({ width, height: 1000 });
     await cdp.send("Network.clearBrowserCache");
     const t = Date.now();
-    await page.goto(url + "/#dashboard", { waitUntil: "commit" });
+    await page.goto(url + "/?measure="+width+"#dashboard", { waitUntil: "commit" });
     await expect(page.getByLabel("首页任务要求")).toBeEditable();
     const inputReadyMs = Date.now() - t;
     assert.ok(inputReadyMs < 12000, "cold input must not wait for heavy scene");
