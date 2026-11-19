@@ -10,7 +10,7 @@ const version=JSON.parse(readFileSync(new URL('../package.json',import.meta.url)
 const envelope=JSON.parse(readFileSync(join(out,'stable.json'),'utf8')),release=verifyRelease(envelope);
 assert.equal(release.version,version);
 const oldClients=[];
-for(const [old,path] of [['0.5.0','test-results/v070-client-0.5.0.mjs'],['0.11.0',process.env.ECUSTUDIO_OLD_INSTALL?join(process.env.ECUSTUDIO_OLD_INSTALL,'app/scripts/update-protocol.mjs'):'']]){
+for(const [old,path] of [['0.5.0','test-results/v070-client-0.5.0.mjs'],[process.env.ECUSTUDIO_OLD_INSTALL?JSON.parse(readFileSync(join(process.env.ECUSTUDIO_OLD_INSTALL,'app/package.json'),'utf8')).version:'',process.env.ECUSTUDIO_OLD_INSTALL?join(process.env.ECUSTUDIO_OLD_INSTALL,'app/scripts/update-protocol.mjs'):'']]){
  if(!path||!existsSync(path))continue;
  const client=await import(pathToFileURL(resolve(path)).href);client.verifyRelease(envelope);oldClients.push(old);
 }
@@ -25,7 +25,7 @@ for(const [platform,file] of Object.entries(release.packages)){
   const raw=readFileSync(join(destination,f.path));assert.equal(raw.length,f.bytes,f.path);assert.equal(sha256(raw),f.sha256,f.path);
   assert.ok(!/(^|\/)(data|node_modules|test-results|__pycache__|\.artifacts|\.git)(\/|$)|\.pyc$|\.sqlite(?:-|$)|\.dpapi$|private\.pem$|(^|\/)\.env$/.test(f.path),f.path);
  }
- for(const path of ['app/dist/ecustudio-mark.svg','app/dist/wechat-themes/LICENSE.txt','app/vendor/acks-markdown/LICENSE','app/dist-server/server/wechat-copy.js','app/dist-server/server/wechat-theme-render.js','app/dist-server/server/wechat-theme-data.js','app/scripts/update-protocol.mjs','app/scripts/update-runner.mjs','app/scripts/upgrade.mjs',version+'发布与升级说明.md',version+'本地Agent安装升级提示词.md','docs/'+version+'使用指南.html'])assert.ok(existsSync(join(destination,path)),path);
+ for(const path of ['app/dist/ecustudio-mark.svg','app/dist/wechat-themes/LICENSE.txt','app/vendor/acks-markdown/LICENSE','app/dist-server/server/webpage-delivery.js','app/dist-server/server/wechat-copy.js','app/dist-server/server/wechat-theme-render.js','app/dist-server/server/wechat-theme-data.js','app/scripts/update-protocol.mjs','app/scripts/update-runner.mjs','app/scripts/upgrade.mjs',version+'发布与升级说明.md',version+'本地Agent安装升级提示词.md','docs/'+version+'使用指南.html'])assert.ok(existsSync(join(destination,path)),path);
  const catalog=await import(pathToFileURL(join(destination,'app/dist-server/shared/wechat-themes.js')).href);
  assert.equal(catalog.wechatThemeIds.length,46);assert.equal(Object.keys(catalog.wechatRecipes).length,9);
  for(const id of catalog.wechatThemeIds)assert.ok(existsSync(join(destination,'app/dist/wechat-themes/'+id+'-preview.png')),id);

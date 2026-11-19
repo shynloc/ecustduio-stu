@@ -1,6 +1,6 @@
 {
   "name": "ecustudio",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -16,7 +16,7 @@
     "test:e2e": "tsx tests/e2e.ts",
     "dev:setup": "node scripts/dev-setup.mjs",
     "test:dev": "node scripts/dev-smoke.mjs",
-    "test:core": "tsx --test tests/pipeline.test.ts tests/accounts-explore.test.ts tests/wechat.test.ts tests/wechat-themes.test.ts tests/mac-keychain.test.ts tests/chat-materials.test.ts && node --test tests/update-protocol.test.mjs tests/macos-stop.test.mjs",
+    "test:core": "tsx --test tests/pipeline.test.ts tests/accounts-explore.test.ts tests/wechat.test.ts tests/wechat-themes.test.ts tests/mac-keychain.test.ts tests/chat-materials.test.ts tests/webpage-delivery.test.ts tests/deepseek-upgrade.test.ts && node --test tests/update-protocol.test.mjs tests/macos-stop.test.mjs",
     "test:ui": "node scripts/run-ui-tests.mjs"
   },
   "dependencies": {
