@@ -18,6 +18,8 @@
 
 首次接手可以依次阅读 [工程交接](HANDOFF.md)、[开发方向与验收目标](docs/DEVELOPMENT_DIRECTION.md) 和 [Mac 开发指南](docs/MAC_DEVELOPMENT.md)。另有一份 [可直接复制的新聊天提示词](docs/NEXT_AGENT_PROMPT.md)。
 
+2026-11-19 最新产品要求见 [全面体验整改方案](docs/plans/2026-11-19-experience-redesign.md) 与 [实施、审计和验收计划](docs/plans/2026-11-19-experience-implementation.md)：统一所见即所得编辑器、3D 工作台、知识/成果管理、完整 Agent 对话与简化项目。这些是待实施方案，当前运行版本尚未包含该轮改造。可运行 `node docs/plans/render-experience-plan.mjs` 生成离线 HTML 阅读版。
+
 ### HTML 转视频
 
 在 AI 对话添加 HTML 并说“保留原网页，做成 6 秒视频”，或在创作项目展开「HTML 转视频」，选择本地文件、公开网页或项目已有 HTML。两个入口默认都直接绘制网页，保留中文排版、CSS、SVG 及按时间播放的脚本动画。长页面自动滚动。明确说“重新编排成分镜”或选择对应选项后，才按网页标题与正文拆段。无声视频在本机生成，配音可先改稿、核对用量并试听。
