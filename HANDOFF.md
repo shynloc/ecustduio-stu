@@ -84,7 +84,7 @@
 - 148/148单元/API、11项更新/停服契约、10组浏览器场景通过；桌面/平板/手机视口和两套主题覆盖。
 - 产品提交4012dbf的[三平台CI](https://github.com/shynloc/ecustduio-stu/actions/runs/44511972954)全部成功：Windows、macOS ARM、macOS Intel。最终文档与包元数据跟随维护提交，不改变被测产品代码。
 - 本机已运行0.11.0，SQLite在线备份和37张业务表核对完成。维护脚本同一进程在Windows强制停服后读取SQLite出现I/O异常，放弃该操作、恢复服务并从健康在线数据库验证；没有清空或替换data。不要将这次维护脚本失败记录包装成升级器已执行成功。
-- 原发布0.10.0的隔离副本已由正式升级器实际升级到0.11.0：三类原密码、资料、配置及加密测试凭据保留。管理员设置页公网升级结果与最终包哈希见本版Acceptance.json。
+- 原发布0.10.0的隔离副本已由正式升级器实际升级到0.11.0：三类原密码、资料、配置及加密测试凭据保留。管理员设置页已实际从公网签名源完成0.10.0→0.11.0升级、自动重连；三类原密码、资料、配置与DPAPI测试凭据保留。最终包哈希及边界见[本版Acceptance.json](https://dshdisk.acks.com.cn/ecustudio/0.11.0/EcuStudio-0.11.0-Acceptance.json)。
 - 真实DeepSeek controlled/deepseek-flash隔离教学任务成功。真实公众号未连接，Mac用户钥匙串/Vision/LaunchAgent及实体手机仍需对应原生会话验收。
 
 ### 0.10.0 历史验证

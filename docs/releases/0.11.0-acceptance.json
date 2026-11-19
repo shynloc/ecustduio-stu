@@ -1,0 +1,119 @@
+{
+  "product": "EcuStudio教创工作台",
+  "version": "0.11.0",
+  "publishedAt": "2026-11-19T11:23:58.360Z",
+  "testedProductCommit": "4012dbfaf6b9fc45c060c053feb00995383ea742",
+  "releaseCommit": "043ed59e137bf90286c6feb8f32cbbda4070ac37",
+  "repository": "https://github.com/shynloc/ecustduio-stu",
+  "githubRelease": "https://github.com/shynloc/ecustduio-stu/releases/tag/v0.11.0",
+  "ci": {
+    "url": "https://github.com/shynloc/ecustduio-stu/actions/runs/44511972954",
+    "result": "success",
+    "platforms": [
+      "windows-latest",
+      "macos-15 ARM64",
+      "macos-15-intel"
+    ]
+  },
+  "tests": {
+    "unitAndAPI": {
+      "passed": 148,
+      "failed": 0
+    },
+    "updateAndMacStopContracts": {
+      "passed": 11,
+      "failed": 0
+    },
+    "browserWorkflowGroups": 10,
+    "viewports": [
+      1440,
+      768,
+      390
+    ],
+    "themes": [
+      "scholar",
+      "obsidian"
+    ],
+    "localFormats": [
+      "editable PPTX",
+      "DOCX",
+      "PDF",
+      "HTML",
+      "GIF",
+      "narrated MP4"
+    ],
+    "htmlMotionVideo": "two entry points, CSS/JS motion, original layout and explicit storyboard; real MP4 output",
+    "deepseekLive": {
+      "engine": "controlled",
+      "model": "deepseek-flash",
+      "material": "isolated synthetic classroom note",
+      "streamed": true,
+      "sourceCitation": true,
+      "inputTokens": 1124,
+      "outputTokens": 58
+    }
+  },
+  "localDeployment": {
+    "version": "0.11.0",
+    "healthy": true,
+    "migrations": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "businessTablesVerified": 37,
+    "accountsAndMaterialsPreserved": true,
+    "encryptedCredentialsAndConfigUnchanged": true,
+    "backupCreated": true
+  },
+  "onlineUpgrade": {
+    "platform": "Windows x64",
+    "from": "unmodified published 0.10.0",
+    "to": "0.11.0",
+    "result": "passed",
+    "finishedAt": "2026-11-19T11:23:02.681Z",
+    "checks": [
+      "all update endpoints deny creators/sales; anonymous and invalid CSRF denied",
+      "real signed feed checked; stale/tampered requested package rejected",
+      "desktop 1440 and mobile 390, scholar/obsidian update panel, no horizontal overflow",
+      "page-triggered public download, detached updater, real service stop/start, automatic page reconnect/reload",
+      "all original table records unchanged; three original passwords work; note/asset retained; configuration and DPAPI bytes unchanged; DeepSeek test credential decrypts; local backup present; no browser JS errors"
+    ]
+  },
+  "updateFeed": {
+    "version": "0.11.0",
+    "verified": true,
+    "feed": "https://dshdisk.acks.com.cn/ecustudio/releases/stable.json",
+    "checkedAt": "2026-11-19T11:21:28.468Z"
+  },
+  "packages": [
+    {
+      "platform": "windows-x64",
+      "url": "https://dshdisk.acks.com.cn/ecustudio/0.11.0/EcuStudio-0.11.0-Windows-x64-UpgradeReady.zip",
+      "bytes": 3805991,
+      "sha256": "056feca69d940409007bd7eb45fd070ff81aa1fdb6b84c5263c12125eaa99583",
+      "verified": true
+    },
+    {
+      "platform": "macos",
+      "url": "https://dshdisk.acks.com.cn/ecustudio/0.11.0/EcuStudio-0.11.0-macOS-UpgradeReady.zip",
+      "bytes": 3809060,
+      "sha256": "7dca99ea16d18238f5092d2538c635ad981b38da3ccc79e951059fcb5a87d4c3",
+      "verified": true
+    }
+  ],
+  "guide": "https://dshdisk.acks.com.cn/ecustudio/0.11.0/EcuStudio-0.11.0-Guide.html",
+  "agentPrompt": "https://dshdisk.acks.com.cn/ecustudio/0.11.0/EcuStudio-0.11.0-Agent.md",
+  "limits": [
+    "Mobile viewport testing is not physical iPhone/Safari testing.",
+    "macOS product tests and packaging passed on ARM/Intel CI; user-session Keychain, Vision and LaunchAgent upgrades still require native customer self-test.",
+    "Wechat draft tests use HTTP fixtures; a real account connection was not available."
+  ]
+}
