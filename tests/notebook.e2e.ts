@@ -241,8 +241,16 @@ try {
     source,
   );
   await page.getByRole("button", { name: "公众号排版", exact: true }).click();
-  const theme = page.getByLabel("公众号主题");
-  await theme.selectOption("milestone-darkcode-dark");
+  const theme = page.getByLabel('选择公众号主题',{exact:true});
+  async function chooseTheme(id:string){
+    const {wechatThemeLabels}=await import('../shared/wechat-themes.js');
+    await theme.click();const dialog=page.getByRole('dialog',{name:'文章排版'});
+    await dialog.getByRole('button',{name:'查看全部主题（46 款）'}).click();
+    await dialog.getByLabel('搜索文章主题').fill(wechatThemeLabels[id]);
+    await dialog.getByRole('radio',{name:'预览主题 '+wechatThemeLabels[id],exact:true}).click();
+    await dialog.getByRole('button',{name:'应用排版',exact:true}).click();
+  }
+  await chooseTheme("milestone-darkcode-dark");
 
   const frame = page.frameLocator(".wechat-preview");
   await expect(frame.getByRole("heading", { name: "课堂问题" })).toBeVisible();
@@ -250,7 +258,7 @@ try {
     .locator("section")
     .first()
     .evaluate((el) => getComputedStyle(el).backgroundColor);
-  await theme.selectOption("milestone-cnclassic-light");
+  await chooseTheme("milestone-cnclassic-light");
 
 
   await expect(frame.getByRole("heading", { name: "课堂问题" })).toBeVisible();

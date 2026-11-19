@@ -22,6 +22,15 @@ const D = await import("../server/db.js"),
 page.on("pageerror", (e) => errors.push(e.message));
 const out = "test-results/wechat-ui";
 mkdirSync(out, { recursive: true });
+async function chooseTheme(name:string){
+  await page.getByLabel('选择公众号主题',{exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'文章排版'});
+  await dialog.getByRole('button',{name:'查看全部主题（46 款）'}).click();
+  await dialog.getByLabel('搜索文章主题').fill(name);
+  await dialog.getByRole('radio',{name:'预览主题 '+name,exact:true}).click();
+  await dialog.getByRole('button',{name:'应用排版',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+}
 try {
   await setupBrowser(page, url);
   await page.goto(url+"/#wechat");
@@ -75,16 +84,73 @@ try {
   const changedBody="## 观察记录\n\n学生先比较两种叶片，再用自己的记录解释判断。\n\n文末验证：课后完成观察日记。";
   await page.getByLabel("文章标题",{exact:true}).fill("课堂观察与讨论");
   await page.getByRole("button",{name:"高级：Markdown 源码",exact:true}).click();await page.getByRole("textbox",{name:"公众号正文源文",exact:true}).fill(changedBody);
-  await page.getByLabel("公众号主题").selectOption("blue");
+  await chooseTheme("教育蓝");
   await expect(preview.getByRole("heading",{name:"观察记录",exact:true})).toBeVisible();
   await expect(preview.getByText("文末验证：课后完成观察日记。")).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("文章标题",{exact:true})).toHaveValue("课堂观察与讨论");
   await expect(page.getByRole("textbox",{name:"公众号正文",exact:true})).toContainText("文末验证：课后完成观察日记。");await expect(page.getByRole("textbox",{name:"公众号正文",exact:true}).getByRole("heading",{name:"观察记录",exact:true})).toBeVisible();
-  await expect(page.getByLabel("公众号主题")).toHaveValue("blue");
+  await expect(page.getByLabel("选择公众号主题",{exact:true})).toContainText("教育蓝");
   assert.equal(D.get("SELECT body FROM notes WHERE id=?",n.id).body,n.body);
   assert.equal(D.get("SELECT count(*) n FROM wechat_previews").n,0);
   assert.equal(fixture.articles.size,0);
+  const aid=new URL(page.url()).hash.match(/article=([^&]+)/)?.[1]||D.get('SELECT id FROM wechat_manuscripts WHERE origin_note_id=?',n.id).id;
+  await expect.poll(()=>JSON.parse(D.get('SELECT content FROM wechat_manuscripts WHERE id=?',aid).content).palette).toBe('blue');
+  const savedBefore=D.get('SELECT content,revision FROM wechat_manuscripts WHERE id=?',aid);
+  await page.getByLabel('选择公众号主题',{exact:true}).click();
+  let picker=page.getByRole('dialog',{name:'文章排版'});
+  await picker.getByRole('radio',{name:'预览主题 金色 · 经典',exact:true}).click();
+  await expect(picker.getByRole('button',{name:'应用排版',exact:true})).toBeEnabled();
+  assert.deepEqual(D.get('SELECT content,revision FROM wechat_manuscripts WHERE id=?',aid),savedBefore);
+  await picker.getByRole('button',{name:'取消选择主题'}).click();
+  await expect(page.getByLabel('选择公众号主题',{exact:true})).toContainText('教育蓝');
+  await page.getByLabel('选择公众号主题',{exact:true}).click();
+  picker=page.getByRole('dialog',{name:'文章排版'});
+  await picker.getByRole('radio',{name:'预览主题 金色 · 经典',exact:true}).click();
+  await picker.getByLabel('收藏当前主题').click();
+  await expect(picker.getByLabel('收藏当前主题')).toHaveAttribute('aria-pressed','true');
+  await picker.getByRole('tab',{name:'配方',exact:true}).click();
+  await picker.getByRole('radio',{name:/教程步骤/}).click();
+  await picker.getByRole('tab',{name:'微调',exact:true}).click();
+  await picker.getByLabel('正文字号',{exact:true}).selectOption('18');
+  await picker.getByLabel('正文行距',{exact:true}).selectOption('2.2');
+  await picker.getByLabel('首行缩进',{exact:true}).check();
+  await picker.getByRole('button',{name:'应用排版',exact:true}).click();
+  await expect.poll(()=>JSON.parse(D.get('SELECT content FROM wechat_manuscripts WHERE id=?',aid).content).format?.size).toBe(18);
+  await page.reload();
+  await expect(page.getByLabel('选择公众号主题',{exact:true})).toContainText('金色 · 经典');
+  const savedAfter=JSON.parse(D.get('SELECT content FROM wechat_manuscripts WHERE id=?',aid).content);
+  assert.equal(savedAfter.body,JSON.parse(savedBefore.content).body);
+  assert.deepEqual(savedAfter.format,{recipe:'tutorial',size:18,lineHeight:2.2,indent:true});
+  for(const workspaceTheme of ['scholar','obsidian'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});
+    await page.evaluate(t=>document.documentElement.dataset.theme=t,workspaceTheme);
+    await page.getByLabel('选择公众号主题',{exact:true}).click();
+    picker=page.getByRole('dialog',{name:'文章排版'});
+    await picker.getByRole('button',{name:'查看全部主题（46 款）'}).click();
+    await expect(picker.getByRole('radio')).toHaveCount(46);
+    await picker.getByLabel('主题系列',{exact:true}).selectOption('favorite');
+    await expect(picker.getByRole('radio')).toHaveCount(1);
+    await expect(picker.getByRole('radio')).toHaveAccessibleName('预览主题 金色 · 经典');
+    await picker.getByLabel('主题系列',{exact:true}).selectOption('recent');
+    await expect(picker.getByRole('radio',{name:'预览主题 金色 · 经典',exact:true})).toBeVisible();
+    await picker.getByLabel('主题系列',{exact:true}).selectOption('all');
+    await picker.getByLabel('明暗风格',{exact:true}).selectOption('dark');
+    assert.ok(await picker.getByRole('radio').count()>0);
+    await picker.getByLabel('明暗风格',{exact:true}).selectOption('all');
+    await expect(picker.getByRole('button',{name:'应用排版',exact:true})).toBeEnabled();
+    await picker.screenshot({path:out+`/theme-picker-${workspaceTheme}-${width}.png`});
+    assert.ok(await picker.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    if(width<700){
+      await picker.getByRole('button',{name:'看文章效果',exact:true}).click();
+      await expect(picker.frameLocator('iframe[title="主题试用预览"]').getByText('文末验证：课后完成观察日记。')).toBeVisible();
+      await picker.screenshot({path:out+`/theme-preview-${workspaceTheme}-${width}.png`});
+      await picker.getByRole('button',{name:'返回选主题',exact:true}).click();
+    }
+    await picker.getByRole('button',{name:'取消选择主题'}).click();
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  await page.evaluate(()=>document.documentElement.dataset.theme='scholar');
   await page.evaluate(`(() => {
     Object.defineProperty(navigator, "clipboard", {configurable:true,value:{write:async (items) => {
       window.copied = {html:await (await items[0].getType("text/html")).text(),text:await (await items[0].getType("text/plain")).text()};
@@ -93,7 +159,7 @@ try {
   await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>(window as any).copied?.text||"")).toContain("文末验证：课后完成观察日记。");
   let copied = await page.evaluate(()=>(window as any).copied);
-  assert.ok(copied.html.includes("data:image/jpeg;base64,"));
+  assert.ok(copied.html.includes("https://mmbiz.qpic.cn/"));
   assert.ok(!copied.html.includes("/api/assets/"));
   assert.ok(copied.text.includes("课堂观察与讨论"));
   await page.evaluate(`(() => {
@@ -107,15 +173,16 @@ try {
     });
   })()`);
   await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).copied?.text||"" )).toContain("文末验证：课后完成观察日记。");
   copied = await page.evaluate(()=>(window as any).copied);
   assert.ok(copied.text.includes("文末验证：课后完成观察日记。"));
-  assert.ok(copied.html.includes("data:image/jpeg;base64,"));
+  assert.ok(copied.html.includes("https://mmbiz.qpic.cn/"));
   await page.evaluate(`(() => {
     document.execCommand = () => false;
     Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async(text) => {window.copied = {text};}}});
   })()`);
   await page.getByRole("button", {name:"复制图文排版",exact:true}).click();
-  await expect(page.getByText("已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。",{exact:true})).toBeVisible();
+  await expect(page.getByText("已复制完整文字；本浏览器未保留图文样式，请下载 HTML 后打开并复制。",{exact:true})).toBeVisible();
   assert.ok((await page.evaluate(()=>(window as any).copied.text)).includes("文末验证：课后完成观察日记。"));
   await page.reload();
   await expect(page.getByRole("textbox",{name:"公众号正文",exact:true})).toContainText("文末验证：课后完成观察日记。");await expect(page.getByRole("textbox",{name:"公众号正文",exact:true}).getByRole("heading",{name:"观察记录",exact:true})).toBeVisible();
@@ -190,7 +257,8 @@ try {
           "direct authoring, local auto-save and refresh with preserved options",
           "private manuscript edits leave the source note intact",
           "complete article clipboard in rich, LAN fallback and plain text modes",
-          "two themes desktop/mobile",
+          "two workspace themes desktop/mobile, theme library 46/search/filter/favorites/recent",
+          "preview cancel without saving, recipe/tweaks persistent, article body unchanged",
           "persistent worker -> remote draft receipt",
           "refresh and saved history, no duplicate",
           "settings connection check",

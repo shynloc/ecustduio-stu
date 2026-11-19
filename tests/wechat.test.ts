@@ -297,6 +297,7 @@ test("管理员/创作者/业务员权限，私有笔记、预览、任务、封
     assert.ok([403,404].includes((await req("GET",manuscript,undefined,h)).statusCode));
     assert.ok([403,404].includes((await req("GET",manuscript+"/layout?revision=1",undefined,h)).statusCode));
     assert.equal((await req("PUT",manuscript,{revision:1,content:{...content,body:"尝试更改"}},h)).statusCode,403);
+    for(const [method,suffix,payload] of [["POST","/layout-preview",{revision:1,palette:"acks-gold"}],["POST","/copy",{revision:1}],["GET","/images?revision=1",undefined]] as const)assert.ok([403,404].includes((await req(method,manuscript+suffix,payload,h)).statusCode));
     for (const url of [
       "/api/wechat/previews/" + preview.id,
       "/api/wechat/drafts/" + draft.id,

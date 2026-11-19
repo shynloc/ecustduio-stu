@@ -1,4 +1,5 @@
-import { wechatThemeLabels } from "../shared/wechat-themes";
+import { wechatThemeLabels, type WechatFormat } from "../shared/wechat-themes";
+import {ThemePicker} from './wechat/ThemePicker';
 import React, { useEffect, useRef, useState } from "react";
 import { api, post, put, upload } from "./api";
 import { DocumentReader } from "./DocumentReader";
@@ -10,8 +11,9 @@ import {
   Smartphone,
   Copy,
   Download,
+  Palette, ChevronDown, LoaderCircle,
 } from "lucide-react";
-import { copyRichHtml, uid } from "./compat";
+import { copyPreparedHtml, uid } from "./compat";
 
 export function WechatConnection({ onChange }: any) {
   const [info, setInfo] = useState<any>(null),
@@ -192,6 +194,7 @@ type Content = {
   palette: string;
   summary: string;
   coverAssetId: string;
+  format?: WechatFormat;
 };
 const blank: Content = {
   title: "",
@@ -270,6 +273,7 @@ function DraftRecord({ draft, onChange }: any) {
 }
 
 export function WechatEditor({ go, id, data, route }: any) {
+  const [themeOpen,setThemeOpen]=useState(false),[copying,setCopying]=useState(false),[copyInfo,setCopyInfo]=useState<any>(null);
   const params = new URLSearchParams(route.split("?")[1] || ""),
     user = data.user.id;
   const [content, setContent] = useState<Content>(blank),
@@ -388,6 +392,7 @@ export function WechatEditor({ go, id, data, route }: any) {
     return m.writing;
   }
   function edit(patch: Partial<Content>) {
+    setCopyInfo(null);
     m.current = { ...m.current, ...patch };
     m.generation++;
     setContent(m.current);
@@ -565,17 +570,17 @@ export function WechatEditor({ go, id, data, route }: any) {
     }
   }
   async function copy() {
+    if(copying||!layoutReady)return;
+    setCopying(true);setError('');setStatus(account?.connected?'正在转存配图并复制…':'正在准备公众号排版…');
     try {
-      const result = await copyRichHtml(html);
-      setStatus(
-        result === "rich"
-          ? "已复制图文排版"
-          : "已复制完整正文。此浏览器仅支持文字复制，保留完整图文可下载 HTML。",
-      );
-    } catch {
-      setError("浏览器未允许复制，可下载 HTML。");
-    }
+      const prepared=post(endpoint+'/'+m.id+'/copy',{revision:m.revision,...(account?.connected?{accountId:account.id}:{})});
+      const result=await copyPreparedHtml(prepared.then(r=>r.html));
+      const info=await prepared;setCopyInfo({...info,html:undefined});
+      setStatus(result==='rich'?'已复制到剪贴板，可粘贴到公众号正文':'已复制完整文字；本浏览器未保留图文样式，请下载 HTML 后打开并复制。');
+    } catch(e:any) { setError(e.message||'复制未完成，请重试。');setStatus('复制未完成'); }
+    finally{setCopying(false);}
   }
+  async function chooseTheme(){await flush();if(changed()){setError('文章尚未保存，请先重试保存，再选择主题。');return;}setThemeOpen(true);}
   function download() {
     const url = URL.createObjectURL(
       new Blob([html], { type: "text/html;charset=utf-8" }),
@@ -589,7 +594,7 @@ export function WechatEditor({ go, id, data, route }: any) {
   return (
     <div className="wechat-studio">
       <header className="page-heading">
-        <h1>公众号编辑器</h1>
+        <div><h1>公众号编辑器</h1><p>写好内容，挑选排版，一键复制到公众号。</p></div>
         <div className="button-row">
           <button
             className="btn secondary"
@@ -715,21 +720,7 @@ export function WechatEditor({ go, id, data, route }: any) {
       ) : ready ? (
         <>
           <div className="manuscript-controls">
-            <label>
-              主题{" "}
-              <select
-                aria-label="公众号主题"
-                value={content.palette}
-                disabled={busy}
-                onChange={(e) => update({ palette: e.target.value })}
-              >
-                {Object.entries(wechatThemeLabels).map(([k, name]) => (
-                  <option key={k} value={k}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <button className="wechat-theme-trigger" aria-label="选择公众号主题" aria-haspopup="dialog" disabled={busy||copying} onClick={chooseTheme}><Palette size={20}/><span><small>文章主题 · 点击更换</small><strong>{wechatThemeLabels[content.palette]}</strong></span><ChevronDown size={16}/></button>
             {source && (
               <button
                 className="text-link"
@@ -744,11 +735,11 @@ export function WechatEditor({ go, id, data, route }: any) {
             <button
               className="btn secondary"
               aria-label="复制图文排版"
-              disabled={!layoutReady}
+              disabled={!layoutReady||copying}
               onClick={copy}
             >
-              <Copy />
-              复制图文
+              {copying?<LoaderCircle className="spin"/>:<Copy />}
+              {copying?'正在准备…':'复制到公众号'}
             </button>
             <button
               className="btn secondary"
@@ -760,6 +751,8 @@ export function WechatEditor({ go, id, data, route }: any) {
               下载 HTML
             </button>
           </div>
+          {themeOpen&&<ThemePicker articleId={m.id} revision={m.revision} initial={{palette:content.palette,format:content.format}} onClose={()=>setThemeOpen(false)} onApply={v=>{setThemeOpen(false);update(v);}}/>}
+          <div className="wechat-copy-guide" role="status">{copyInfo?.message||(account?.connected?'复制时会把配图转存到已连接公众号，再粘贴到微信的正文编辑区即可。':'选择主题后点“复制到公众号”，在微信正文编辑区粘贴。连接公众号可自动转存配图。')}{copyInfo&&!copyInfo.imagesReady&&copyInfo.imageCount>0&&<a href={'/api'+endpoint+'/'+m.id+'/images?revision='+m.revision} download>下载配图（{copyInfo.imageCount} 张）</a>}<a href="https://mp.weixin.qq.com/" target="_blank" rel="noreferrer">打开公众号后台</a></div>
           <div className="manuscript-mobile" aria-label="编辑视图">
             <button
               aria-pressed={mobile === "write"}

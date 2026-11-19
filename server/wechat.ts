@@ -1,4 +1,6 @@
 import {articleProfile, wechatThemeIds, type WechatTheme} from "../shared/wechat-themes.js";
+import {signatureBytes} from './wechat-theme-render.js';
+import {wechatFormatSchema} from './wechat-format.js';
 import { z } from "zod";
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import { imageSize } from "image-size";
@@ -126,7 +128,7 @@ function coverBytes(title: string, palette: WechatTheme) {
   const canvas = createCanvas(900, 383),
     ctx = canvas.getContext("2d");
   ctx.fillStyle =
-    (palette === "milestone-darkcode-dark"
+    (articleProfile(palette)?.mode === "dark"
       ? articleProfile(palette)?.bg
       : articleProfile(palette)?.heading) ??
     (palette === "blue"
@@ -177,7 +179,7 @@ export async function articleLayout(
       );
   const palette = b.palette || "green";
   const $ = cheerio.load(
-    wechatHtml({ ...note, title, summary: b.summary }, palette),
+    wechatHtml({ ...note, title, coverAssetId:undefined, summary: b.summary, format:b.format }, palette),
     null,
     false,
   );
@@ -197,17 +199,19 @@ export async function articleLayout(
     ...new Set(
       $("img")
         .toArray()
-        .map((el) => $(el).attr("src")!.split("/").pop()!),
+        .map((el) => imageKey($(el).attr("src")!)),
     ),
   ];
   if (ids.length > 30)
     err("WECHAT_IMAGE_LIMIT", "文章配图较多，请拆成两篇后排版。", 422);
   const images: any[] = [],
     embedded = new Map<string, Buffer>(),
+    mimeTypes = new Map<string,string>(),
     destinations = new Map<string, string>();
   let total = 0;
   for (const original of ids) {
-    if (original !== sentinel) {
+    const themeBytes=original.startsWith('ecustudio-theme:')?signatureBytes(original.slice(16)):undefined;
+    if (original !== sentinel && !themeBytes) {
       checkMediaAsset(original, user);
       total += requireRow(
         get("SELECT size FROM assets WHERE id=?", original),
@@ -216,15 +220,15 @@ export async function articleLayout(
     if (total > 20 * 1048576)
       err("WECHAT_IMAGE_LIMIT", "本篇配图超过20MB，请减少配图后预览。", 422);
     const bytes =
-      original === sentinel
+      themeBytes || (original === sentinel
         ? coverBytes(title, palette)
-        : await jpegBytes(original, user);
+        : await jpegBytes(original, user));
     let dest = original;
     if (freeze) {
       const a = asset(
         bytes,
-        original === sentinel ? "公众号自动封面.jpg" : "公众号配图.jpg",
-        "image/jpeg",
+        original === sentinel ? "公众号自动封面.jpg" : themeBytes ? "公众号主题装饰.png" : "公众号配图.jpg",
+        themeBytes ? "image/png" : "image/jpeg",
         "wechat",
       );
       grantMediaAsset(a.id, user.id);
@@ -233,10 +237,11 @@ export async function articleLayout(
       destinations.set(original, dest);
     }
     embedded.set(dest, bytes);
+    mimeTypes.set(dest,themeBytes?'image/png':'image/jpeg');
   }
   if (freeze)
     $("img").each((_, el) => {
-      const original = $(el).attr("src")!.split("/").pop()!;
+      const original = imageKey($(el).attr("src")!);
       $(el).attr("src", "/api/assets/" + destinations.get(original));
     });
   const cover = images[0];
@@ -251,18 +256,19 @@ export async function articleLayout(
       422,
     );
   $("img").each((_, el) => {
-    const key = $(el).attr("src")!.split("/").pop()!;
+    const key = imageKey($(el).attr("src")!);
     $(el).attr(
       "src",
-      "data:image/jpeg;base64," + embedded.get(key)!.toString("base64"),
+      "data:"+mimeTypes.get(key)+";base64," + embedded.get(key)!.toString("base64"),
     );
   });
   const previewHtml =
     '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body>' +
     $.html() +
     "</body></html>";
-  return { title, summary, palette, html, images, cover, previewHtml };
+  return { title, summary, palette, html, images, cover, previewHtml, inlineImages:[...embedded].map(([key,bytes])=>({key,bytes,mime:mimeTypes.get(key)})) };
 }
+export const imageKey=(src:string)=>src.startsWith('ecustudio-theme:')?src:src.split('/').pop()!;
 export async function prepareWechat(noteId: string, b: any, user: any) {
   const note = noteView(owned("notes", noteId, user));
   if (note.revision !== b.revision)
@@ -292,6 +298,7 @@ export async function prepareWechat(noteId: string, b: any, user: any) {
       title: b.title || "",
       summary: b.summary || "",
       coverAssetId: b.coverAssetId || null,
+      format: b.format || {},
     },
     warning: note.sources?.some(
       (s: any) => s.needsReview || s.coverage === "partial",
@@ -399,7 +406,7 @@ export async function registerWechatDrafts(
   client: WechatClient = officialWechat,
   secrets: Secrets = wechatSecrets,
 ) {
-  registerManuscripts(app,enqueue);
+  registerManuscripts(app,enqueue,client,secrets);
   app.get("/api/wechat/connection", async () => connection());
   app.post("/api/settings/wechat/connect", async (req: any) => {
     const b = z
@@ -480,6 +487,7 @@ export async function registerWechatDrafts(
             .optional(),
           coverAssetId: z.string().max(100).optional(),
           palette: z.enum(wechatThemeIds).default("green"),
+          format: wechatFormatSchema.optional(),
         })
         .strict()
         .parse(req.body),

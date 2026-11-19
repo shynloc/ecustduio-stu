@@ -22,6 +22,8 @@ import {
   prepareWechat,
 } from "./wechat.js";
 import { wechatThemeIds } from "../shared/wechat-themes.js";
+import {wechatFormatSchema} from './wechat-format.js';
+import {prepareWechatCopy, articleImageZip} from './wechat-copy.js';
 import { checkMediaAsset } from "./media-access.js";
 
 const fields = z
@@ -33,6 +35,7 @@ const fields = z
     palette: z.enum(wechatThemeIds),
     summary: z.string().max(120),
     coverAssetId: z.string().max(100),
+    format: wechatFormatSchema.optional(),
   })
   .strict();
 const empty = {
@@ -108,7 +111,7 @@ function create(
   );
   return view(article(aid, uid));
 }
-export function registerManuscripts(app: any, enqueue: any) {
+export function registerManuscripts(app: any, enqueue: any, client:any, secrets:any) {
   const root = "/api/wechat/manuscripts";
   app.get(root, async (req: any) =>
     all(
@@ -167,6 +170,7 @@ export function registerManuscripts(app: any, enqueue: any) {
         palette: p.palette || empty.palette,
         summary: (p.options ? p.options.summary : p.summary) || "",
         coverAssetId: (p.options ? p.options.coverAssetId : p.cover?.id) || "",
+        format: p.options?.format || {},
       },
       parse(base.sources, []),
       origin,
@@ -219,6 +223,28 @@ export function registerManuscripts(app: any, enqueue: any) {
         req.user,
       );
     return { previewHtml, title, revision: row.revision };
+  });
+  app.post(root + '/:aid/layout-preview',async(req:any)=>{
+    const row=article(req.params.aid,req.user.id);
+    const b=z.object({revision:z.number().int(),palette:z.enum(wechatThemeIds),format:wechatFormatSchema.optional()}).strict().parse(req.body);
+    version(row,b.revision);
+    const c={...parse(row.content),palette:b.palette,format:b.format||{}};
+    const result=await articleLayout({...c,title:c.title||'未命名文章',sources:parse(row.sources)},c,req.user);
+    return {previewHtml:result.previewHtml,revision:row.revision};
+  });
+  app.post(root+'/:aid/copy',async(req:any)=>{
+    const row=article(req.params.aid,req.user.id);
+    const b=z.object({revision:z.number().int(),accountId:z.string().optional()}).strict().parse(req.body);
+    version(row,b.revision);
+    const c=parse(row.content);
+    const result=await prepareWechatCopy({...c,title:c.title||'未命名文章',sources:parse(row.sources)},c,req.user,b.accountId,client,secrets);
+    version(article(req.params.aid,req.user.id),b.revision);
+    return result;
+  });
+  app.get(root+'/:aid/images',async(req:any,reply:any)=>{
+    const row=article(req.params.aid,req.user.id);version(row,Number(req.query.revision));
+    const c=parse(row.content),zip=await articleImageZip({...c,title:c.title||'未命名文章',sources:parse(row.sources)},c,req.user);
+    return reply.type('application/zip').header('Content-Disposition','attachment; filename="wechat-images.zip"').send(zip);
   });
   app.post(root + "/:aid/draft", async (req: any) => {
     const { revision, accountId } = z

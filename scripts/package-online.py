@@ -6,7 +6,7 @@ output = pathlib.Path(sys.argv[1]).resolve(); output.mkdir(parents=True, exist_o
 (app/'.artifacts'/'staging').mkdir(parents=True,exist_ok=True)
 stage = pathlib.Path(tempfile.mkdtemp(prefix=f'windows-online-{version}-', dir=app/'.artifacts'/'staging'))
 product = stage/'app'; product.mkdir()
-for name in ['server','web','shared','migrations','skills','public','dist','dist-server']:
+for name in ['server','web','shared','migrations','skills','public','vendor','dist','dist-server']:
     shutil.copytree(app/name, product/name, ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
 for name in ['package.json','package-lock.json','tsconfig.json','tsconfig.server.json','vite.config.ts','.env.example','.gitignore']:
     shutil.copy2(app/name, product/name)
@@ -14,7 +14,7 @@ for name in ['package.json','package-lock.json','tsconfig.json','tsconfig.server
 shutil.copy2(app/'HANDOFF.md',product/'HANDOFF.md')
 shutil.copy2(app/'README.md',product/'DEVELOPMENT_README.md')
 shutil.copytree(app/'docs'/'plans',product/'docs'/'plans')
-for doc in ['MAC_DEVELOPMENT.md','DEVELOPMENT_DIRECTION.md','NEXT_AGENT_PROMPT.md','0.11.0开发与验证记录.md','0.11.0使用指南.md','0.11.0发布与升级说明.md']:shutil.copy2(app/'docs'/doc,product/'docs'/doc)
+for doc in ['MAC_DEVELOPMENT.md','DEVELOPMENT_DIRECTION.md','NEXT_AGENT_PROMPT.md','0.11.0开发与验证记录.md','0.11.0使用指南.md','0.11.0发布与升级说明.md','公众号主题选择器与复制-2026-11-19.md']:shutil.copy2(app/'docs'/doc,product/'docs'/doc)
 for name in ['update-protocol.mjs','update-runner.mjs','upgrade.mjs','sync-update-runtime.mjs','windows-ocr.ps1','macos-ocr.js','diagnose-runtime.mjs','customer-selftest.mjs','setup-gif-runtime.mjs','gif-factory-export.py','gif-factory-decode.py','authenticated-session.ts']:
     shutil.copy2(app/'scripts'/name, product/'scripts'/name)
 for file in (app/'deployment').iterdir():

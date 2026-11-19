@@ -192,10 +192,11 @@ export class WechatClient {
     signal?: AbortSignal,
   ) {
     const form = new FormData();
+    const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
     form.set(
       "media",
-      new Blob([new Uint8Array(bytes)], { type: "image/jpeg" }),
-      "ecustudio.jpg",
+      new Blob([new Uint8Array(bytes)], { type: png ? "image/png" : "image/jpeg" }),
+      png ? "ecustudio.png" : "ecustudio.jpg",
     );
     const r = await this.call(
       a,

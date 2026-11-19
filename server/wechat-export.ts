@@ -1,4 +1,6 @@
 import {articleProfile, wechatThemeIds, type WechatTheme} from "../shared/wechat-themes.js";
+import {renderArticleTheme, signatureBytes} from './wechat-theme-render.js';
+import {wechatFormatSchema} from './wechat-format.js';
 import { marked } from "marked";
 import sanitize from "sanitize-html";
 import * as cheerio from "cheerio";
@@ -12,13 +14,16 @@ const esc = (s: string) =>
 export function wechatHtml(note: any, palette: WechatTheme = "green") {
   const profile = articleProfile(palette);
   const accent = profile?.accent ?? (palette === "blue" ? "#245b91" : palette === "ink" ? "#292929" : "#23483d");
-  const clean = sanitize(marked.parse(note.body, { async: false }) as string, {
+  const parsed=cheerio.load(marked.parse(note.body, { async: false }) as string,null,false);
+  parsed('input[type=checkbox]').each((_,el)=>{parsed(el).replaceWith(parsed('<span>').text(parsed(el).attr('checked')!==undefined?'☑ ':'☐ '));});
+  const clean = sanitize(parsed.html(), {
     allowedTags: [
       "p",
       "h1",
       "h2",
       "h3",
       "h4",
+      "h5", "h6", "u", "mark", "sup", "sub", "span",
       "strong",
       "em",
       "s",
@@ -39,7 +44,8 @@ export function wechatHtml(note: any, palette: WechatTheme = "green") {
       "pre",
       "code",
     ],
-    allowedAttributes: { a: ["href"], img: ["src", "alt"] },
+    allowedAttributes: { a: ["href"], img: ["src", "alt"], ol:["start"],td:["colspan","rowspan"],th:["colspan","rowspan"], span:["style"],mark:["style"] },
+    allowedStyles: {'*':{color:[/^#[\da-f]{3,8}$/i,/^rgb\([\d\s,]+\)$/], 'background-color':[/^#[\da-f]{3,8}$/i], 'font-weight':[/^(bold|[4-9]00)$/]}},
     allowedSchemes: ["http", "https"],
     allowedSchemesByTag: { img: [] },
     allowProtocolRelative: false,
@@ -53,6 +59,17 @@ export function wechatHtml(note: any, palette: WechatTheme = "green") {
   const next = headline.next();
   if (next.is("h1") && next.text().trim() === headline.text().trim()) next.remove();
   $("section > h1").slice(1).each((_, heading) => {heading.tagName="h2";});
+  if (profile) {
+    $("img").each((_,img)=>{if(!/^\/api\/assets\/[a-zA-Z0-9_-]+$/.test($(img).attr('src')||''))$(img).replaceWith($('<p>').text('【配图待上传】'+($(img).attr('alt')||'')));});
+    if(note.summary)headline.after($('<p class="ecu-summary">').text(note.summary));
+    if(note.coverAssetId)headline.before($('<img>').attr('src','/api/assets/'+note.coverAssetId).attr('alt','文章封面'));
+    if(note.sources?.length){
+      const refs=$('<section>').append($('<h3>').text('参考来源'));
+      for(const s of note.sources)refs.append($('<p>').text((s.id&&/^S\d+$/.test(s.id)?'['+s.id+'] ':'')+(s.title||'资料')+(s.url?' · '+s.url:'')));
+      $('section').first().append(refs);
+    }
+    return renderArticleTheme($.html(),palette,note.format||{});
+  }
   $("section").attr(
     "style",
     "max-width:677px;margin:auto;padding:16px;color:#303638;background:#fff;font-family:system-ui,sans-serif;font-size:16px;line-height:1.9;word-break:break-word;",
@@ -107,16 +124,10 @@ export function wechatHtml(note: any, palette: WechatTheme = "green") {
       );
     $("section").first().append(refs);
   }
-  if (profile) {
-    const t = profile;
-    $("section").first().attr("style", `max-width:677px;margin:auto;padding:20px;background:${t.bg};color:${t.text};font-family:${t.fontFamily};font-size:${t.bodySize}px;line-height:${t.lineHeight};overflow-wrap:anywhere;`);
-    $("h1").attr("style", `margin:24px 0 16px;color:${t.titleText};font-family:${t.headingFamily};font-size:${t.h1}px;line-height:1.35;`);
-    $("h2,h3,h4").attr("style", `margin:24px 0 12px;padding-bottom:5px;border-bottom:2px solid ${accent};color:${t.heading};font-family:${t.headingFamily};font-size:${t.h2}px;line-height:1.45;`);
-    $("p,li").attr("style", `margin:10px 0;color:${t.text};line-height:${t.lineHeight};`);
-    $("blockquote").attr("style", `margin:18px 0;padding:8px 14px;background:${t.quoteBg};border-left:3px solid ${t.quoteBorder};`);
-    $("strong").attr("style", `color:${accent};font-weight:700;`);
-    $("th").attr("style", `background:${t.thBg};color:${t.thText};padding:8px;border:1px solid ${t.quoteBorder};text-align:left;`);
-    $("pre,code").attr("style", `background:${t.codeBlockBg};color:${t.codeBlockText};white-space:pre-wrap;overflow-wrap:anywhere;`);
+  if (note.format) {
+    const f=note.format;
+    $('p,li').each((_,el)=>{ $(el).attr('style',($(el).attr('style')||'')+(f.size?`font-size:${f.size}px;`:'')+(f.lineHeight?`line-height:${f.lineHeight};`:'')+(f.indent!==undefined?`text-indent:${f.indent?'2em':'0'};`:'')); });
+    if(['tutorial','data','list','tech'].includes(f.recipe))$('h2').each((i,el)=>{ $(el).prepend($('<span>').text((i+1)+'. ')); });
   }
   return $.html();
 }
@@ -128,17 +139,20 @@ export async function registerWechat(app: any) {
           summary:z.string().max(300).default(""),
           coverAssetId:z.string().max(100).optional(),
           palette: z.enum(wechatThemeIds).default("green"),
+          format: wechatFormatSchema.optional(),
         })
         .strict()
         .parse(req.body),
       note = noteView(owned("notes", req.params.id, req.user));
     if (note.revision !== b.revision)
       err("VERSION_CONFLICT", "笔记已更新，请重新载入后排版", 409);
-    const html = wechatHtml({...note,summary:b.summary,coverAssetId:b.coverAssetId}, b.palette),
+    const html = wechatHtml({...note,summary:b.summary,coverAssetId:b.coverAssetId,format:b.format}, b.palette),
       $ = cheerio.load(html, null, false);
     let total = 0,
       count = 0;
     $("img").each((_, img) => {
+      const src=$(img).attr('src')||'';
+      if(src.startsWith('ecustudio-theme:')){const png=signatureBytes(src.slice(16));if(png)$(img).attr('src','data:image/png;base64,'+png.toString('base64'));return;}
       const id = ($(img).attr("src") || "").split("/").pop()!;
       checkMediaAsset(id, req.user);
       const a = assetBuffer(id);

@@ -73,3 +73,23 @@ export async function copyRichHtml(source: string): Promise<"rich" | "text"> {
   await copyText(text);
   return "text";
 }
+
+// Start the clipboard request during the click, before image uploads finish.
+// Safari requires the user gesture even when ClipboardItem data is asynchronous.
+export async function copyPreparedHtml(source:Promise<string>):Promise<'rich'|'text'>{
+  if(navigator.clipboard?.write&&typeof ClipboardItem!=='undefined'){
+    const payload=source.then(html=>{
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      doc.querySelectorAll('script,style,iframe,object,embed').forEach(n=>n.remove());
+      const rich=doc.body.innerHTML;
+      doc.querySelectorAll('br').forEach(n=>n.replaceWith('\n'));
+      doc.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,tr,blockquote,section').forEach(n=>n.append('\n'));
+      return {html:rich,text:(doc.body.textContent||'').replace(/\n{3,}/g,'\n\n').trim()};
+    });
+    try{
+      await navigator.clipboard.write([new ClipboardItem({'text/html':payload.then(p=>new Blob([p.html],{type:'text/html'})),'text/plain':payload.then(p=>new Blob([p.text],{type:'text/plain'}))})]);
+      return 'rich';
+    }catch{await payload; /* A failed preparation must never copy stale content. */}
+  }
+  return copyRichHtml(await source);
+}
